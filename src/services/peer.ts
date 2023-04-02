@@ -1,5 +1,6 @@
+import type { Rect } from '@/stores/rect'
 import { Peer, type DataConnection } from 'peerjs'
-import { ref, watch, type Ref } from 'vue'
+import { ref, type Ref } from 'vue'
 import { DataHandler } from './data_handlers'
 
 export class PeerService {
@@ -15,14 +16,6 @@ export class PeerService {
 
   constructor() {
     this.handler = new DataHandler(this)
-
-    watch(
-      this.peerConnections,
-      (connections) => {
-        console.log('connections changed', connections)
-      },
-      { deep: true }
-    )
   }
 
   initSelf() {
@@ -32,7 +25,6 @@ export class PeerService {
       console.log('My peer ID is: ' + id)
 
       this.peer?.on('connection', (conn) => {
-        console.log('hello connection?')
         console.log(this.peerConnections.value)
         this.initPeer(conn)
       })
@@ -81,9 +73,6 @@ export class PeerService {
     }
 
     const conn = this.peer.connect(peerId)
-
-    console.log('connection established?', conn.connectionId)
-
     this.initPeer(conn)
   }
 
@@ -109,6 +98,34 @@ export class PeerService {
       conn.send({
         type: 'message',
         value: data
+      })
+    })
+  }
+
+  addRect(rect: Rect) {
+    if (!this.peer) {
+      console.error('Peer not initialized')
+      return
+    }
+
+    this.peerConnections.value.forEach((conn) => {
+      conn.send({
+        type: 'rect_add',
+        value: rect
+      })
+    })
+  }
+
+  updateRect(rect: Rect) {
+    if (!this.peer) {
+      console.error('Peer not initialized')
+      return
+    }
+
+    this.peerConnections.value.forEach((conn) => {
+      conn.send({
+        type: 'rect_update',
+        value: rect
       })
     })
   }

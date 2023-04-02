@@ -1,17 +1,19 @@
 import { useMessageStore } from '@/stores/messages'
+import { useRectStore, type Rect } from '@/stores/rect'
 import type { PeerService } from '../peer'
 
 export class DataHandler {
   peerService: PeerService
   messageStore: any
+  rectStore: any
 
   constructor(peerService: PeerService) {
     this.peerService = peerService
     this.messageStore = useMessageStore()
+    this.rectStore = useRectStore()
   }
 
   handleData(data: any) {
-    console.log('handling data', data)
     if (typeof data === 'object') {
       this._handleDataObject(data)
       return
@@ -22,11 +24,17 @@ export class DataHandler {
   _handleDataObject(data: any) {
     switch (data.type) {
       case 'room_information':
-        this._handleRoomInformation(data.data)
-        break
+        this._handleRoomInformation(data.data);
+        break;
       case 'message':
-        this._handleMessage(data)
-        break
+        this._handleMessage(data);
+        break;
+      case 'rect_add':
+        this._handleRectAdd(data);
+        break;
+      case 'rect_update':
+        this._handleRectUpdate(data);
+        break;
       default:
         console.error('Unknown type for data object', data.type)
     }
@@ -50,14 +58,32 @@ export class DataHandler {
     console.log('handling message', data)
     this.messageStore.addMessage(data.value)
   }
+
+  _handleRectAdd(data: RectAdd) {
+    this.rectStore.addRect(data.value)
+  }
+
+  _handleRectUpdate(data: RectUpdate) {
+    this.rectStore.updateRect(data.value)
+  }
 }
 
-type RoomInformation = {
+export type RoomInformation = {
   type: 'room_information'
   peers: string[]
 }
 
-type Message = {
+export type Message = {
   type: 'message'
   value: string
+}
+
+export type RectAdd = {
+  type: 'rect_add',
+  value: Rect,
+}
+
+export type RectUpdate = {
+  type: 'rect_update',
+  value: Rect,
 }
