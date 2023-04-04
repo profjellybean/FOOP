@@ -1,64 +1,82 @@
 import { Peer, type DataConnection } from 'peerjs'
-import { ref, watch, type Ref } from 'vue'
+import { ref, type Ref } from 'vue'
 import { DataHandler } from './data_handlers'
 
 export class PeerService {
+  logTag: String = "[PeerService]"
+
   peer: Peer | null = null
 
   peerId: Ref<string | null> = ref(null)
 
-  handler: DataHandler
+  handler: DataHandler | undefined
 
   _store: any // should be a typed version of the peerStore
+
+  _initialized: boolean = false
 
   peerConnections: Ref<DataConnection[]> = ref([]) // is a list of DataConnection objects, but atm i was not able to import the type
 
   constructor() {
-    this.handler = new DataHandler(this)
-
-    watch(
-      this.peerConnections,
-      (connections) => {
-        console.log('connections changed', connections)
-      },
-      { deep: true }
-    )
+    // watch(
+    //   this.peerConnections,
+    //   (connections) => {
+    //     console.log(this.logTag + ' Connections changed', connections)
+    //   },
+    //   { deep: true }
+    // )
   }
 
-  initSelf() {
-    this.peer = new Peer()
-    this.peer.on('open', (id) => {
-      this.peerId.value = id
-      console.log('My peer ID is: ' + id)
+  async initSelf() {
+    this.handler ??= new DataHandler(this)
 
-      this.peer?.on('connection', (conn) => {
-        console.log('hello connection?')
-        console.log(this.peerConnections.value)
-        this.initPeer(conn)
+    this.peer ??= new Peer()
+
+    if (this._initialized) {
+      return true
+    }
+
+    return new Promise((resolve, reject) => {
+      if (!this.peer) {
+        console.log(this.logTag + ' Peer not initialized on initSelf')
+        reject(false)
+        return
+      }
+      this.peer.on('open', (id) => {
+        this.peerId.value = id
+        // console.log(logTag + ' Peer ID is: ' + id)
+
+        this.peer?.on('connection', (conn) => {
+          // console.log(this.logTag + ' New connection event from remote peer', conn.peer)
+          this.initPeer(conn)
+        })
+
+        this._initialized = true
+        resolve(true)
       })
-    })
+    });
   }
 
   initPeer(conn: DataConnection) {
     if (!this.peer) {
-      console.error('Peer not initialized')
+      console.error(this.logTag + ' Peer not initialized')
       return
     }
 
     conn?.on('open', () => {
       conn.on('data', (data: any) => {
-        this.handler.handleData(data)
+        this.handler!.handleData(data)
       })
 
       conn.on('close', () => {
-        console.log('connection closed', conn.peer)
+        console.log(this.logTag + ' Connection from peer closed, peer id: ', conn.peer)
         this.peerConnections.value = this.peerConnections.value.filter((c) => c.peer !== conn.peer)
       })
 
       // tell the peer about other peers in our session
       // to allow them to connect to the unknown peers
       if (this.peerConnections.value.length > 0) {
-        console.info('sending room information to peer', conn.peer)
+        console.info(this.logTag + ' Sending room information to peer', conn.peer)
         conn.send({
           type: 'room_information',
           data: {
@@ -74,17 +92,15 @@ export class PeerService {
     })
   }
 
-  connectToPeer(peerId: string) {
+  connectToPeer(peerId: string): boolean {
     if (!this.peer) {
-      console.error('Peer not initialized')
-      return
+      console.error(this.logTag + ' Peer not initialized')
+      return false
     }
 
     const conn = this.peer.connect(peerId)
-
-    console.log('connection established?', conn.connectionId)
-
     this.initPeer(conn)
+    return true
   }
 
   closeAllConnections() {
@@ -96,20 +112,5 @@ export class PeerService {
   destroy() {
     this.closeAllConnections()
     this.peer!.destroy()
-  }
-
-  // example function to send data to all peers
-  sendMessage(data: any) {
-    if (!this.peer) {
-      console.error('Peer not initialized')
-      return
-    }
-
-    this.peerConnections.value.forEach((conn) => {
-      conn.send({
-        type: 'message',
-        value: data
-      })
-    })
   }
 }
