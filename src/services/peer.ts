@@ -27,10 +27,14 @@ export class PeerService {
     // )
   }
 
-  async initSelf() {
+  async initSelf(peerId?: string) {
     this.handler ??= new DataHandler(this)
 
-    this.peer ??= new Peer()
+    if (peerId !== undefined) {
+      this.peer ??= new Peer(peerId, {})
+    } else {
+      this.peer ??= new Peer()
+    }
 
     if (this._initialized) {
       return true
@@ -63,7 +67,15 @@ export class PeerService {
       return
     }
 
+    if (this.peerConnections.value.filter((c) => c.peer === conn.peer).length > 0) {
+      // check if we already have an option connection to the given peer
+      console.log(this.logTag + ' Connection already exists, peer id: ', conn.peer)
+      return
+    }
+
     conn?.on('open', () => {
+      console.log(`${this.logTag} New connection from peer ${conn.peer} established`);
+
       conn.on('data', (data: any) => {
         this.handler!.handleData(data)
       })
@@ -76,6 +88,7 @@ export class PeerService {
       // tell the peer about other peers in our session
       // to allow them to connect to the unknown peers
       if (this.peerConnections.value.length > 0) {
+        // Please note that this should only be executed when the peer has not been connected previously
         console.info(this.logTag + ' Sending room information to peer', conn.peer)
         conn.send({
           type: 'room_information',
@@ -88,7 +101,6 @@ export class PeerService {
 
       // when setup correctly push the own connection to the current peer session
       this.peerConnections.value.push(conn)
-      console.log(this.peerConnections.value)
     })
   }
 
@@ -99,6 +111,11 @@ export class PeerService {
     }
 
     const conn = this.peer.connect(peerId)
+
+    if (conn.peerConnection.connectionState === 'failed') {
+      console.warn(this.logTag + " Could not connect to peer: ", peerId)
+    }
+
     this.initPeer(conn)
     return true
   }
@@ -112,5 +129,12 @@ export class PeerService {
   destroy() {
     this.closeAllConnections()
     this.peer!.destroy()
+  }
+
+  send(data: any) {
+    // todo: this is somehow very simple .. maaaybe too simple? 😁
+    for (const peer of this.peerConnections.value) {
+      peer.send(data)
+    }
   }
 }

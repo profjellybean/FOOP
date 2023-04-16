@@ -1,13 +1,11 @@
-import { useMessageStore } from '@/stores/messages'
 import type { PeerService } from '../peer'
 
 export class DataHandler {
   peerService: PeerService
-  messageStore: any
+  _handlers: { [key: string]: (context: PeerContext, data: any) => void } = {}
 
   constructor(peerService: PeerService) {
     this.peerService = peerService
-    this.messageStore = useMessageStore()
   }
 
   handleData(data: any) {
@@ -20,44 +18,20 @@ export class DataHandler {
   }
 
   _handleDataObject(data: any) {
-    switch (data.type) {
-      case 'room_information':
-        this._handleRoomInformation(data.data)
-        break
-      case 'message':
-        this._handleMessage(data)
-        break
-      default:
-        console.error('Unknown type for data object', data.type)
+    const handler = this._handlers[data.type]
+
+    if (handler === undefined || handler === null) {
+      console.error('Unknown type for data object', data.type)
     }
+
+    handler({ peerService: this.peerService }, data);
   }
 
-  _handleRoomInformation(data: RoomInformation) {
-    console.log('handling room information', data)
-    for (const peer of data.peers) {
-      if (
-        peer === this.peerService.peer?.id ||
-        this.peerService.peerConnections.value.some((conn) => conn.peer === peer)
-      ) {
-        continue
-      }
-
-      this.peerService.connectToPeer(peer)
-    }
-  }
-
-  _handleMessage(data: Message) {
-    console.log('handling message', data)
-    this.messageStore.addMessage(data.value)
+  registerHandler(type: string, handler: (context: PeerContext, data: any) => void) {
+    this._handlers[type] = handler
   }
 }
 
-type RoomInformation = {
-  type: 'room_information'
-  peers: string[]
-}
-
-type Message = {
-  type: 'message'
-  value: string
+export type PeerContext = {
+  peerService: PeerService
 }
