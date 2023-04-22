@@ -3,7 +3,7 @@ import { klona } from 'klona';
 import { ref, type Ref } from "vue";
 import type { PeerService } from '../peer';
 import { ECS, Entity, type EntityMap } from "./ecs";
-import { AppearanceComponent, PositionComponent } from "./ecs/components";
+import { AppearanceComponent, PositionComponent, MapComponent } from "./ecs/components";
 
 export type GameSettings = {
   gameId: string;
@@ -17,6 +17,7 @@ export class GameService {
   gameFinished: boolean = false;
   peerService?: PeerService;
   entitySystem: ECS;
+  map: MapComponent = new MapComponent();
 
   currentState: Ref<GameState> = ref({} as GameState);
   stateBuffer: GameState = {} as GameState;
@@ -26,9 +27,11 @@ export class GameService {
     this._settings = settings ?? { gameId: "game1", multiplayer: false, networked: false };
     this.peerService = peerService;
     this.entitySystem = entitySystem ?? new ECS();
+    this.map.init();
   }
 
   startGame(players?: string[]) {
+    console.log(this.map);
     this.currentState.value = {
       entities: {
         ...this.generatePlayers(players)

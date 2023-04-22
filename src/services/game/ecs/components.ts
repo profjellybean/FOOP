@@ -27,3 +27,54 @@ export class PositionComponent implements Component {
     }
   }
 }
+
+type FieldInfo = {
+  occupied: Component | null;
+  type: 'surface' | 'underground' | 'entry' | 'meeting';
+};
+
+export class MapComponent implements Component {
+  compName: string = "map";
+  map?: FieldInfo[][];
+
+  init(params?: any): Object {
+    this.map = Array(100);
+    for (let i = 0; i < 100; i++) {
+      this.map[i] = new Array(100);
+      for (let j = 0; j < 100; j++) {
+        if (i % 20 === 0) {
+          this.map[i][j] = {
+            occupied: null,
+            type: 'underground'
+          };
+        } else {
+          this.map[i][j] = {
+            occupied: null,
+            type: 'surface'
+          };
+        }
+      }
+    }
+    this.map[80][0] = {
+      occupied: null,
+      type: 'meeting'
+    }
+    this.map[20][0] = {
+      occupied: null,
+      type: 'entry'
+    }
+    this.map[40][99] = {
+      occupied: null,
+      type: 'entry'
+    }
+    this.map[60][0] = {
+      occupied: null,
+      type: 'entry'
+    }
+    this.map[80][99] = {
+      occupied: null,
+      type: 'entry'
+    }
+    return this.map;
+  }
+}
