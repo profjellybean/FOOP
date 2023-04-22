@@ -9,7 +9,9 @@ export {}
 
 declare module '@vue/runtime-core' {
   export interface GlobalComponents {
+    GameMap: typeof import('./src/components/GameMap.vue')['default']
     GamePlayer: typeof import('./src/components/GamePlayer.vue')['default']
+    Map: typeof import('./src/components/Map.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
   }

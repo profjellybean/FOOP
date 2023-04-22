@@ -24,10 +24,8 @@ const player = computed(() => state.value.entities && state.value.entities[playe
 
 <template>
   <div class="h-full w-full bg-sky-700 flex justify-center items-center">
-    <div class="h-3/4 w-3/4 sm:h-2/3 sm:w-2/3 md:h-1/2 md:w-1/2 bg-green-600 rounded-xl shadow-lg p-4 relative">
-      {{ state }}
-      <GamePlayer v-if="player !== undefined" :player="player" :game-service="gameService" controllable></GamePlayer>
-    </div>
+    <GameMap :map="gameService.map.value.map"></GameMap>
+    <GamePlayer v-if="player !== undefined" :player="player" :game-service="gameService" controllable></GamePlayer>
   </div>
 </template>
 

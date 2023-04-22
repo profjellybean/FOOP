@@ -42,7 +42,7 @@ export class MapComponent implements Component {
     for (let i = 0; i < 100; i++) {
       this.map[i] = new Array(100);
       for (let j = 0; j < 100; j++) {
-        if (i % 20 === 0) {
+        if (i % 20 === 0 && i !== 0) {
           this.map[i][j] = {
             occupied: null,
             type: 'underground'
@@ -59,19 +59,19 @@ export class MapComponent implements Component {
       occupied: null,
       type: 'meeting'
     }
-    this.map[20][0] = {
+    this.map[20][10] = {
       occupied: null,
       type: 'entry'
     }
-    this.map[40][99] = {
+    this.map[40][90] = {
       occupied: null,
       type: 'entry'
     }
-    this.map[60][0] = {
+    this.map[60][10] = {
       occupied: null,
       type: 'entry'
     }
-    this.map[80][99] = {
+    this.map[80][90] = {
       occupied: null,
       type: 'entry'
     }

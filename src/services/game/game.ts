@@ -17,7 +17,7 @@ export class GameService {
   gameFinished: boolean = false;
   peerService?: PeerService;
   entitySystem: ECS;
-  map: MapComponent = new MapComponent();
+  map: Ref<MapComponent> = ref(new MapComponent());
 
   currentState: Ref<GameState> = ref({} as GameState);
   stateBuffer: GameState = {} as GameState;
@@ -27,11 +27,11 @@ export class GameService {
     this._settings = settings ?? { gameId: "game1", multiplayer: false, networked: false };
     this.peerService = peerService;
     this.entitySystem = entitySystem ?? new ECS();
-    this.map.init();
+    this.map.value.init();
   }
 
   startGame(players?: string[]) {
-    console.log(this.map);
+    console.log(this.map.value.map);
     this.currentState.value = {
       entities: {
         ...this.generatePlayers(players)
