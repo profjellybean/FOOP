@@ -3,7 +3,8 @@ import { klona } from 'klona';
 import { ref, type Ref } from "vue";
 import type { PeerService } from '../peer';
 import { ECS, Entity, type EntityMap } from "./ecs";
-import { AppearanceComponent, PositionComponent, MapComponent } from "./ecs/components";
+import { AppearanceComponent, PositionComponent, MapComponent, AliveComponent } from "./ecs/components";
+import { MouseHelper } from "./ecs/pathfinding";
 
 export type GameSettings = {
   gameId: string;
@@ -18,27 +19,31 @@ export class GameService {
   peerService?: PeerService;
   entitySystem: ECS;
   map: Ref<MapComponent> = ref(new MapComponent());
+  numberOfMice: number;
 
   currentState: Ref<GameState> = ref({} as GameState);
   stateBuffer: GameState = {} as GameState;
+  mouseHelper: MouseHelper;
 
   // constructor(peerService: PeerService, entitySystem?: ECS) {
-  constructor(peerService?: PeerService, entitySystem?: ECS, settings?: GameSettings) {
+  constructor(peerService?: PeerService, entitySystem?: ECS, settings?: GameSettings, numOfMice?: number) {
     this._settings = settings ?? { gameId: "game1", multiplayer: false, networked: false };
+    this.mouseHelper = new MouseHelper();
+    this.numberOfMice = this.mouseHelper.getNumberOfMice();
     this.peerService = peerService;
-    this.entitySystem = entitySystem ?? new ECS();
+    this.entitySystem = entitySystem ?? new ECS(this.numberOfMice);
     this.map.value.init();
   }
 
   startGame(players?: string[]) {
-    console.log(this.map.value.map);
+    //console.log(this.map.value.map);
     this.currentState.value = {
-      entities: {
+      players: {
         ...this.generatePlayers(players)
       },
-      // entities: {
-      //   ...this.generateOpponents()
-      // }
+      opponents: {
+         ...this.generateOpponents()
+      }
     }
 
     this.stateBuffer = { ...this.currentState.value };
@@ -63,7 +68,7 @@ export class GameService {
     for (const playerId of players) {
       const ent = this.entitySystem.createEntity(playerId);
       ent.addComponent(new AppearanceComponent(), { shape: 'cat' });
-      ent.addComponent(new PositionComponent(), { x: (Math.random() * 1000) / (Math.random() * 10), y: (Math.random() * 1000) / (Math.random() * 10) });
+      ent.addComponent(new PositionComponent('pos'), { x: (Math.random() * 1000) / (Math.random() * 10), y: (Math.random() * 1000) / (Math.random() * 10) });
       // todo: add a collision component, to know when mice collide with cats
       // ent.addComponent(new CollisionComponent());
 
@@ -74,10 +79,12 @@ export class GameService {
 
   generateOpponents(): EntityMap {
     const entities: EntityMap = {};
-    for (let i = 0; i < 10; ++i) {
+    for (let i = 0; i < this.numberOfMice; ++i) {
       const ent = this.entitySystem.createEntity();
       ent.addComponent(new AppearanceComponent(), { shape: 'mouse' });
-      ent.addComponent(new PositionComponent(), { x: (Math.random() * 1000) / (Math.random() * 10), y: (Math.random() * 1000) / (Math.random() * 10) });
+      ent.addComponent(new PositionComponent('pos'), { x: this.mouseHelper.getInitialMouseX(), y: this.mouseHelper.getInitialMouseY()});
+      ent.addComponent(new PositionComponent('goal'), { x: this.mouseHelper.getGoalMouseX(), y: this.mouseHelper.getGoalMouseY()});
+      ent.addComponent(new AliveComponent, { isAlive: true });
       // todo: add a collision component, to know when mice collide with cats
       // ent.addComponent(new CollisionComponent());
 
@@ -87,7 +94,7 @@ export class GameService {
   }
 
   emit(entityId: string, event: string, payload?: any) {
-    const entity = klona(this.stateBuffer.entities[entityId]);
+    const entity = klona(this.stateBuffer.players[entityId]);
     if (!entity) {
       console.warn(`${this.logTag} Entity with ID ${entityId} not found`);
       return;
@@ -99,7 +106,7 @@ export class GameService {
         break;
     }
 
-    this.stateBuffer.entities[entityId] = entity;
+    this.stateBuffer.players[entityId] = entity;
   }
 
   _handleMove(entity: Entity, payload: string) {
@@ -123,6 +130,7 @@ export class GameService {
   }
 
   _gameLoop() {
+    this.entitySystem.updateOpponentPosition();
 
     // todo: send the game changed gameloop update to peers
     if (this._settings.multiplayer && this._settings.networked) {
@@ -132,7 +140,8 @@ export class GameService {
       });
     }
 
-    this.entitySystem.update(this.stateBuffer.entities);
+    this.entitySystem.update(this.stateBuffer.players);
+    this.entitySystem.update(this.stateBuffer.opponents);
 
     this.stateBuffer = { ...this.currentState.value };
 
@@ -145,6 +154,7 @@ export class GameService {
 }
 
 export type GameState = {
-  // players: EntityMap
-  entities: EntityMap
+  //entities: EntityMap,
+  players: EntityMap,
+  opponents: EntityMap
 }

@@ -4,7 +4,7 @@ import type { MapComponent } from '@/services/game/ecs/components';
 const props = defineProps<{
     map: MapComponent;
 }>();
-console.log(props.map);
+//console.log(props.map);
 
 
 </script>

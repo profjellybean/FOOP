@@ -1,10 +1,17 @@
-import type { Component } from "./components";
+import type { AliveComponent, Component } from "./components";
+import { MouseHelper } from "./pathfinding";
 
 export type EntityMap = { [key: string]: Entity };
 
 export class ECS {
   _entityCount: number = 0;
   _entities: EntityMap = {};
+  mouseService = new MouseHelper();
+  numberOfMice: number;
+
+  constructor (numOfMice: number) {
+    this.numberOfMice = numOfMice;
+  }
 
   createEntity(preferredId?: string): Entity {
     if (!preferredId) {
@@ -28,6 +35,15 @@ export class ECS {
 
   update(entities: EntityMap) {
     this.importEntities(entities);
+  }
+
+  updateOpponentPosition() {
+    for (let i = 1; i <= this.numberOfMice; i++) {
+      const mouse = this._entities[String(i)];
+      if (mouse.getComponent<AliveComponent>("isAlive")) {
+        this.mouseService.updateMousePosition(mouse);
+      }
+    }
   }
 }
 

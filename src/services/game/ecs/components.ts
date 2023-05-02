@@ -16,9 +16,13 @@ export class AppearanceComponent implements Component {
 }
 
 export class PositionComponent implements Component {
-  compName: string = "pos";
+  compName: string; //could be 'pos' or 'goal' or 'tempDest' // TODO: should this be an enum?
   x?: number;
   y?: number;
+
+  constructor (componentName: string) {
+    this.compName = componentName;
+  }
 
   init(params: any): Object {
     return {
@@ -26,6 +30,18 @@ export class PositionComponent implements Component {
       y: params.y ?? 0
     }
   }
+}
+
+export class AliveComponent implements Component {
+  compName: string = "isAlive";
+  isAlive?: boolean;
+
+  init(params: any): Object {
+    return {
+      isAlive: params ?? false
+    }
+  }
+
 }
 
 type FieldInfo = {
@@ -63,11 +79,23 @@ export class MapComponent implements Component {
       occupied: null,
       type: 'entry'
     }
+    this.map[20][80] = {
+      occupied: null,
+      type: 'entry'
+    }
     this.map[40][90] = {
       occupied: null,
       type: 'entry'
     }
+    this.map[40][20] = {
+      occupied: null,
+      type: 'entry'
+    }
     this.map[60][10] = {
+      occupied: null,
+      type: 'entry'
+    }
+    this.map[60][30] = {
       occupied: null,
       type: 'entry'
     }
