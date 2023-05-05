@@ -43,7 +43,7 @@ export class GameService {
     // send start game event through the peerService
     if (this._settings.multiplayer && this._settings.networked) {
       this.peerService!.send({
-        type: "start_game",
+        type: "initial_state_sync",
         value: {
           state: this.currentState.value
         }

@@ -7,7 +7,7 @@ import { computed, ref, watch } from 'vue';
 
 const props = defineProps<{
   player: Entity;
-  controllable: boolean;
+  controllable?: boolean;
   gameService: GameService;
 }>();
 
@@ -60,25 +60,6 @@ if (props.controllable) {
       moveUp.pause();
     }
   });
-  // whenever(arrowdown, () => mover('down'));
-  // whenever(arrowright, () => mover('right'));
-  // whenever(arrowup, () => mover('up'));
-
-  // whenever(arrowleft, () => {
-  //   props.gameService.emit(props.player.id, 'move', 'left');
-  // });
-
-  // whenever(arrowdown, () => {
-  //   props.gameService.emit(props.player.id, 'move', 'down');
-  // });
-
-  // whenever(arrowright, () => {
-  //   props.gameService.emit(props.player.id, 'move', 'right');
-  // });
-
-  // whenever(arrowup, () => {
-  //   props.gameService.emit(props.player.id, 'move', 'up');
-  // });
 }
 
 </script>
