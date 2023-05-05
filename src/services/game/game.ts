@@ -3,7 +3,7 @@ import { klona } from 'klona';
 import { ref, type Ref } from "vue";
 import type { PeerService } from '../peer';
 import { ECS, Entity, type EntityMap } from "./ecs";
-import { AppearanceComponent, PositionComponent, MapComponent, AliveComponent } from "./ecs/components";
+import { AliveComponent, AppearanceComponent, MapComponent, PositionComponent } from "./ecs/components";
 import { MouseHelper } from "./ecs/pathfinding";
 
 export type GameSettings = {
@@ -42,7 +42,7 @@ export class GameService {
         ...this.generatePlayers(players)
       },
       opponents: {
-         ...this.generateOpponents()
+        ...this.generateOpponents()
       }
     }
 
@@ -82,8 +82,8 @@ export class GameService {
     for (let i = 0; i < this.numberOfMice; ++i) {
       const ent = this.entitySystem.createEntity();
       ent.addComponent(new AppearanceComponent(), { shape: 'mouse' });
-      ent.addComponent(new PositionComponent('pos'), { x: this.mouseHelper.getInitialMouseX(), y: this.mouseHelper.getInitialMouseY()});
-      ent.addComponent(new PositionComponent('goal'), { x: this.mouseHelper.getGoalMouseX(), y: this.mouseHelper.getGoalMouseY()});
+      ent.addComponent(new PositionComponent('pos'), { x: this.mouseHelper.getInitialMouseX(), y: this.mouseHelper.getInitialMouseY() });
+      ent.addComponent(new PositionComponent('goal'), { x: this.mouseHelper.getGoalMouseX(), y: this.mouseHelper.getGoalMouseY() });
       ent.addComponent(new AliveComponent, { isAlive: true });
       // todo: add a collision component, to know when mice collide with cats
       // ent.addComponent(new CollisionComponent());
@@ -129,7 +129,7 @@ export class GameService {
     }
   }
 
-  _gameLoop() {
+  async _gameLoop(): Promise<void> {
     this.entitySystem.updateOpponentPosition();
 
     // todo: send the game changed gameloop update to peers
