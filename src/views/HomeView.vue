@@ -4,7 +4,7 @@ import type { PeerService } from '@/services/peer';
 import { useClipboard } from '@vueuse/core';
 import { inject, ref } from 'vue';
 
-const peerService: PeerService | undefined = inject('peerService');
+const peerService = inject('peerService') as PeerService;
 
 const { copy } = useClipboard()
 
@@ -33,6 +33,8 @@ const createGame = async () => {
 
   await initPeer()
 
+  console.log("peer id is: " + peerService.peerId.value);
+
   copy(window.location.protocol + '//' + window.location.host + "/lobby/" + peerService.peerId.value);
 
   router.push(`/lobby/${peerService.peerId.value}`);
@@ -52,7 +54,7 @@ const connectToLobby = async () => {
 
   const peerId = parseLobbyId(lobbyId.value.value)
 
-  const connected = peerService.connectToPeer(peerId)
+  const connected = await peerService.connectToPeer(peerId)
 
   if (connected) {
     router.push(`/lobby/${peerId}`);
@@ -87,6 +89,6 @@ const connectToLobby = async () => {
 
 <style>
 .ui-card {
-  @apply bg-white shadow-md rounded-lg p-8 text-blue-950 max-w-md;
+  @apply bg-white shadow-md rounded-lg p-8 text-blue-950 w-full max-w-md;
 }
 </style>
