@@ -4,7 +4,7 @@ export const handleRoomInformation = (context: PeerContext, data: RoomInformatio
   console.log('handling room information', data)
   for (const peer of data.peers) {
     if (
-      peer === context.peerService.peer?.id ||
+      peer === context.peerService._store.peerId ||
       context.peerService.peerConnections.value.some((conn) => conn.peer === peer)
     ) {
       continue

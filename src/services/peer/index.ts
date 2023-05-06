@@ -1,35 +1,24 @@
+import { PeerConnectionState } from '@/stores/types';
+import { useWebrtcConnectionStore } from '@/stores/webrtcConn';
 import { Peer, type DataConnection } from 'peerjs';
 import { ref, type Ref } from 'vue';
-import { DataHandler } from './data_handlers';
-
-enum PeerConnectionState {
-  CONNECTING = 'connecting',
-  CONNECTED = 'connected',
-  ERROR = 'error'
-}
-
-export type PeerConnectionStates = {
-  [key: string]: PeerConnectionState
-};
+import { DataHandler } from '../data_handlers';
 
 export class PeerService {
   logTag: String = "[PeerService]"
 
   peer: Ref<Peer | null> = ref(null)
 
-  peerId: Ref<string | null> = ref(null)
-
-  peerConnectionStates: PeerConnectionStates = {}
-
   handler: DataHandler | undefined
 
-  _store: any // should be a typed version of the peerStore
+  _store = useWebrtcConnectionStore();
 
   _initialized: boolean = false
 
   peerConnections: Ref<DataConnection[]> = ref([]) // is a list of DataConnection objects, but atm i was not able to import the type
 
-  _onPeerUnavailable?: EventEmitter;
+  reconnecter?: number; // the interval id that tries to reconnect to the peer
+  reconnectionCount: number = 0;
 
   constructor() {
   }
@@ -49,6 +38,7 @@ export class PeerService {
     }
 
     this.handler ??= new DataHandler(this)
+    this._store.setConnectionState(PeerConnectionState.CONNECTING);
 
     if (peerId !== undefined) {
       this.peer.value = new Peer(peerId, this._serverConfig)
@@ -59,17 +49,23 @@ export class PeerService {
     return new Promise((resolve, reject) => {
       if (!this.peer.value) {
         console.log(this.logTag + ' Peer not initialized on initSelf')
-        reject('peer-not-initialized')
+        this._store.setConnectionState(PeerConnectionState.ERROR);
+        reject('peer-not-initialized');
         return
       }
       this.peer.value.on('open', (id) => {
-        this.peerId.value = id
+        this._store.setPeerId(id);
+        this._store.setConnectionState(PeerConnectionState.CONNECTED);
         console.log(this.logTag + ' Peer ID is: ' + id)
         resolve(true)
       });
 
       // todo: the `err` variable below is actually of type `PeerError` but peer.js does not export the type
-      this.peer.value.on('error', (err: any) => this._handlePeerError(err, reject));
+      this.peer.value.on('error', (err: any) => {
+        console.log("got error in peer.value", err);
+        this._store.setConnectionState(PeerConnectionState.ERROR);
+        this._handlePeerError(err, reject)
+      });
 
       this.peer.value.on('connection', (conn) => {
         console.log(this.logTag + ' New connection event from remote peer', conn.peer)
@@ -77,6 +73,8 @@ export class PeerService {
       })
 
       this.peer.value.on('disconnected', (peerId) => {
+        console.log(this.logTag + ' Peer disconnected', peerId);
+        this._store.setConnectionState(PeerConnectionState.DISCONNECTED);
         // todo: cleanup peer internally
       })
 
@@ -100,10 +98,10 @@ export class PeerService {
       console.log(this.logTag + ' Connection already exists, peer id: ', conn.peer)
       return
     }
-    console.log("initing peer");
 
     conn.on('open', () => {
       console.log(`${this.logTag} New connection from peer ${conn.peer} established`);
+      this._store.setPeerConnectionState(conn.peer, PeerConnectionState.CONNECTED);
 
       // tell the peer about other peers in our session
       // to allow them to connect to the unknown peers
@@ -131,21 +129,24 @@ export class PeerService {
     conn.on('close', () => {
       console.log(this.logTag + ' Connection from peer closed, peer id: ', conn.peer)
       this.peerConnections.value = this.peerConnections.value.filter((c) => c.peer !== conn.peer)
+      this._store.setPeerConnectionState(conn.peer, PeerConnectionState.DISCONNECTED);
     });
 
     conn.on('error', (err: any) => {
       console.error(this.logTag + ' Peer connection error ', err)
       console.error(this.logTag + ' error type ', err.type)
+      this._store.setPeerConnectionState(conn.peer, PeerConnectionState.ERROR);
     });
   }
 
   async connectToPeer(peerId: string): Promise<boolean> {
+    console.log(this.logTag + " Connecting to peer", peerId);
     if (!this.peer) {
       console.error(this.logTag + ' Peer not initialized')
       return false
     }
 
-    this.peerConnectionStates[peerId] = PeerConnectionState.CONNECTING;
+    this._store.setPeerConnectionState(peerId, PeerConnectionState.CONNECTING);
 
     let conn: DataConnection;
     try {
@@ -155,27 +156,20 @@ export class PeerService {
       console.error(e);
       return false
     }
-    console.log("hello after connect");
-    console.log(conn);
 
     this.initPeer(conn);
 
     return new Promise((resolve, reject) => {
-      // this._onPeerUnavailable = () => {
-      //   
-      // };
-
       conn.on('open', () => {
         console.log(this.logTag + ' Connection to peer established, peer id: ', peerId)
-        this.peerConnectionStates[peerId] = PeerConnectionState.CONNECTED;
+        this._store.setPeerConnectionState(peerId, PeerConnectionState.CONNECTED);
         resolve(true)
       });
 
       conn.on('error', (err: any) => {
         console.log(this.logTag + '#[connectToPeer]: Error during connection to: ', peerId)
-        this.peerConnectionStates[peerId] = PeerConnectionState.ERROR;
-
-        this._handlePeerError(err, reject)
+        this._store.setPeerConnectionState(peerId, PeerConnectionState.ERROR);
+        this._handlePeerError(err, reject);
       });
     });
 
@@ -199,15 +193,34 @@ export class PeerService {
     }
   }
 
-  _handlePeerError(err: any, callback: Function) {
+  _handlePeerError(err: any, callback: Function) { // err is actually a PeerError
     console.error(this.logTag + ' Peer error ', err.type);
 
     switch (err.type) {
       // case 'browser-incompatible':
       //   break;
       case 'peer-unavailable':
-        console.error("PEER UNAVAILABLE");
-        throw new Error("PEER UNAVAILABLE");
+        // eslint-disable-next-line no-case-declarations
+        const peerId = (err.message as String).split(' ').pop();
+        if (!peerId) {
+          console.error(this.logTag + ' Could not extract peer id from error message');
+          return
+        }
+        this.reconnectionCount++;
+        if (this.reconnectionCount < 4) {
+          console.log(this.logTag + " adding reconnecter attempt in 1 sec");
+          this.reconnecter = setTimeout(() => {
+            console.log(this.logTag + " Trying to reconnect to " + peerId);
+            clearTimeout(this.reconnecter);
+            this.connectToPeer(peerId);
+          }, 2000);
+          break;
+        }
+        console.error(this.logTag + " Could not reconnect to " + peerId);
+        console.error(this.logTag + " Stopping reconnection attempts");
+        this._store.setPeerConnectionState(peerId, PeerConnectionState.NOT_FOUND);
+        clearTimeout(this.reconnecter);
+        break;
       // case 'disconnected':
       //   break;
       // case 'invalid-id':
@@ -230,6 +243,8 @@ export class PeerService {
         this.peer.value?.removeAllListeners();
         this.peer.value?.destroy();
         this.peer.value = null;
+        this._store.setPeerId(null);
+        this._store.setConnectionState(PeerConnectionState.ERROR);
         break;
     }
     callback(err.type)

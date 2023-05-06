@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import router from '@/router';
 import type { PeerService } from '@/services/peer';
+import { useWebrtcConnectionStore } from '@/stores/webrtcConn';
 import { useClipboard } from '@vueuse/core';
 import { inject, ref } from 'vue';
 
+const connectionStore = useWebrtcConnectionStore();
 const peerService = inject('peerService') as PeerService;
 
 const { copy } = useClipboard()
@@ -33,11 +35,11 @@ const createGame = async () => {
 
   await initPeer()
 
-  console.log("peer id is: " + peerService.peerId.value);
+  console.log("peer id is: " + connectionStore.peerId);
 
-  copy(window.location.protocol + '//' + window.location.host + "/lobby/" + peerService.peerId.value);
+  copy(window.location.protocol + '//' + window.location.host + "/lobby/" + connectionStore.peerId);
 
-  router.push(`/lobby/${peerService.peerId.value}`);
+  router.push(`/lobby/${connectionStore.peerId}`);
 }
 
 const startSingleGame = async () => {
