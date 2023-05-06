@@ -1,9 +1,17 @@
 <script setup lang="ts">
+import PeerItem from '@/components/PeerItem.vue';
 import router from '@/router';
 import { GameService } from '@/services/game/game';
 import { PeerService } from '@/services/peer';
+import { PeerConnectionState } from '@/stores/types';
+import { useWebrtcConnectionStore } from '@/stores/webrtcConn';
 import { computed, inject, onBeforeMount, provide, ref } from 'vue';
-import { onBeforeRouteUpdate } from 'vue-router';
+import { onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router';
+
+const logTag = "[LobbyView]";
+
+// todo: rename the store
+const connectionStore = useWebrtcConnectionStore();
 
 let peerService = inject('peerService') as PeerService;
 const gameService = new GameService();
@@ -13,16 +21,16 @@ const lobbyId = computed(() => router.currentRoute.value.params.lobbyId);
 const pageState = ref(0); // 0 initial, 1 creating peer, 2 connecting to lobby, 3 done
 
 const yourGame = computed(() => {
-  return lobbyId.value === peerService.peerId.value;
+  return lobbyId.value === connectionStore.peerId;
 });
 
 const connectToLobby = async (lobbyId?: string) => {
   pageState.value = 2;
-  console.log(`[LobbyView] Connecting to lobby ${lobbyId}`);
+  console.log(`${logTag} Connecting to lobby ${lobbyId}`);
   try {
     await peerService.connectToPeer(lobbyId as string);
   } catch (e) {
-    console.error(`[LobbyView] Could not connect to lobby ${lobbyId}`);
+    console.error(`${logTag} Could not connect to lobby ${lobbyId}`);
     console.error(e);
     return;
   }
@@ -31,25 +39,24 @@ const connectToLobby = async (lobbyId?: string) => {
 
 
 
-const initialisePeer = async (lobbyId?: string) => {
+const initialisePeer = async (peerId: string | null) => {
+  if ([PeerConnectionState.CONNECTING, PeerConnectionState.CONNECTED].includes(connectionStore.connectionState)) {
+    console.log(logTag + " Peer is already connecting or connected, skipping init");
+    pageState.value = 2;
+    return;
+  }
+
   try {
     pageState.value = 1;
-    console.log("[LobbyView] Initializing self with the lobby Id ", lobbyId);
-    await peerService.initSelf(lobbyId);
-    pageState.value = 3;
+    console.log(logTag + " Initializing self with new id");
+    await peerService.initSelf(peerId ?? undefined);
+    pageState.value = 2;
   } catch (e) {
-    console.warn(`[LobbyView] Initialization with lobbyId (${lobbyId}) failed; Initialising with random ID and connect to lobby`);
-    await peerService.initSelf();
+    console.error(`${logTag} Initialization new id failed;`);
   }
 }
 
-
-onBeforeRouteUpdate(async (to, from, next) => {
-  // todo: do we need to need to initialise peer again here?
-  next();
-});
-
-onBeforeMount(async () => {
+const _beforeRenderHooks = async () => {
   if (peerService === undefined) {
     // if there is no peer service we - for now - just instantiate one 
     // to prevent users from not being able to communicate with peers from here on
@@ -57,19 +64,36 @@ onBeforeMount(async () => {
     provide('peerService', peerService);
   }
 
-  if (peerService.peerId.value === null) {
-    // if the local peer has not been initialised
-    // we initialise it with the lobbyId
-    await initialisePeer(lobbyId.value as string);
-  }
+  await initialisePeer(connectionStore.peerId);
 
-
-  if (peerService.peerConnections.value.filter((e) => e.provider.id === lobbyId.value).length == 0 && lobbyId.value !== peerService.peerId.value) {
+  if (peerService.peerConnections.value.filter((e) => e.provider.id === lobbyId.value).length == 0 && lobbyId.value !== connectionStore.peerId) {
     await connectToLobby(lobbyId.value as string);
+  } else {
+    // the user is the host of the lobby
+    pageState.value = 3;
   }
+}
+
+
+onBeforeRouteUpdate(async (to, from, next) => {
+  await _beforeRenderHooks();
+
+  next();
 });
 
+onBeforeRouteLeave(() => {
+  const leave = confirm("waaaait you will be removed from the lobby if you leave!");
 
+  if (leave) {
+    peerService.destroy();
+  }
+
+  return leave;
+});
+
+onBeforeMount(async () => {
+  await _beforeRenderHooks();
+});
 
 const startGame = () => {
   provide('gameService', gameService);
@@ -77,6 +101,14 @@ const startGame = () => {
 
   router.push(`/game/${lobbyId.value}`);
 }
+
+const leaveLobby = async () => {
+  router.push(`/`);
+}
+
+const connections = computed(() => {
+  return Object.keys(connectionStore.peerConnectionStates);
+});
 
 </script>
 
@@ -86,27 +118,25 @@ const startGame = () => {
       <div class="flex justify-start items-center mb-4">
         <button
           class="rounded-full px-3 py-1 bg-slate-400/20 border border-slate-400 mix-blend-lighten text-slate-200 text-sm hover:bg-slate-400/90 hover:text-white focus:bg-slate-400/90 focus:text-white"
-          @click="router.back">
+          @click="leaveLobby">
           <span class="text-xs">&lt;</span> Back
         </button>
       </div>
-      {{ pageState }}
-      <div class="bg-white shadow-md rounded-lg p-8 text-blue-950 max-w-md">
+      <div class="bg-white shadow-md rounded-lg p-8 text-blue-950 max-w-full lg:max-w-lg">
         <h3 class="text-lg font-mono mb-3">{{ yourGame ? 'Your' : 'The' }} game
           lobby</h3>
+
+        <PeerItem v-if="connectionStore.peerId !== null" :peer-id="connectionStore.peerId" self></PeerItem>
         <hr class="mt-4 mb-4 border-gray-100">
         <div v-if="pageState === 1">
           Initialising peer...
         </div>
-        <div v-if="pageState === 2">
-          Connecting to lobby...
-        </div>
-        <div v-if="pageState === 3">
-          <p class=" text-xs text-gray-500">Connected members</p>
-          <ul v-if="peerService.peerConnections.value.length > 0">
-            <li v-for="(conn, idx) in peerService.peerConnections.value" :key="idx">
-              {{ conn.peer }}
-            </li>
+        <div v-else>
+          <p class=" text-xs text-gray-500 mb-2">Connected members</p>
+          <ul v-if="connections.length > 0">
+            <template v-for="(conn, idx) in connections" :key="idx">
+              <PeerItem :peer-id="conn"></PeerItem>
+            </template>
           </ul>
           <p class="text-fuchsia-400 text-sm" v-else>No peers connected</p>
           <button v-if="yourGame"

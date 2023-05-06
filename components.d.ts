@@ -10,6 +10,7 @@ export {}
 declare module '@vue/runtime-core' {
   export interface GlobalComponents {
     GamePlayer: typeof import('./src/components/GamePlayer.vue')['default']
+    PeerItem: typeof import('./src/components/PeerItem.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
   }
