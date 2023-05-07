@@ -133,9 +133,9 @@ const connections = computed(() => {
         </div>
         <div v-else>
           <p class=" text-xs text-gray-500 mb-2">Connected members</p>
-          <ul v-if="connections.length > 0">
+          <ul v-if="connections.length > 0" class="divide-y">
             <template v-for="(conn, idx) in connections" :key="idx">
-              <PeerItem :peer-id="conn"></PeerItem>
+              <PeerItem :peer-id="conn" class="py-2"></PeerItem>
             </template>
           </ul>
           <p class="text-fuchsia-400 text-sm" v-else>No peers connected</p>

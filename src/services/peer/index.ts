@@ -3,6 +3,7 @@ import { useWebrtcConnectionStore } from '@/stores/webrtcConn';
 import { Peer, type DataConnection } from 'peerjs';
 import { ref, type Ref } from 'vue';
 import { DataHandler } from '../data_handlers';
+import { handleInitialSync, handleRoomInformation, handleStartGame } from '../data_handlers/handlers';
 
 export class PeerService {
   logTag: String = "[PeerService]"
@@ -38,6 +39,7 @@ export class PeerService {
     }
 
     this.handler ??= new DataHandler(this)
+    this._addDefaultHandlers(this.handler);
     this._store.setConnectionState(PeerConnectionState.CONNECTING);
 
     if (peerId !== undefined) {
@@ -62,8 +64,7 @@ export class PeerService {
 
       // todo: the `err` variable below is actually of type `PeerError` but peer.js does not export the type
       this.peer.value.on('error', (err: any) => {
-        console.log("got error in peer.value", err);
-        this._store.setConnectionState(PeerConnectionState.ERROR);
+        console.error(this.logTag + " Got error in peer.value", err);
         this._handlePeerError(err, reject)
       });
 
@@ -110,10 +111,7 @@ export class PeerService {
         console.info(this.logTag + ' Sending room information to peer', conn.peer)
         conn.send({
           type: 'room_information',
-          data: {
-            peers: this.peerConnections.value.map((conn) => conn.peer)
-            // add some more relevant info like has the game started etc.
-          }
+          peers: this.peerConnections.value.map((conn) => conn.peer)
         })
       }
 
@@ -193,12 +191,20 @@ export class PeerService {
     }
   }
 
+  _addDefaultHandlers(handler: DataHandler) {
+    handler.registerHandler('room_information', handleRoomInformation);
+    handler.registerHandler('initial_game_sync', handleInitialSync);
+    handler.registerHandler('start_game', handleStartGame)
+  }
+
   _handlePeerError(err: any, callback: Function) { // err is actually a PeerError
-    console.error(this.logTag + ' Peer error ', err.type);
+    console.error(this.logTag + ' Peer error caught ', err.type);
 
     switch (err.type) {
-      // case 'browser-incompatible':
-      //   break;
+      case 'browser-incompatible':
+        console.error(this.logTag + ' Browser incompatible, please use a modern browser');
+        alert("This browser seemingly does not support WebRTC and is not compatible with this application. Please use a modern browser.")
+        break;
       case 'peer-unavailable':
         // eslint-disable-next-line no-case-declarations
         const peerId = (err.message as String).split(' ').pop();
@@ -221,21 +227,20 @@ export class PeerService {
         this._store.setPeerConnectionState(peerId, PeerConnectionState.NOT_FOUND);
         clearTimeout(this.reconnecter);
         break;
-      // case 'disconnected':
-      //   break;
-      // case 'invalid-id':
-      //   break;
-      // case 'network':
-      //   break;
-      // case 'ssl-unavailable':
-      //   break;
-      // case 'server-error':
-      //   break;
-
-      //   break;
-      // case 'unavailable-id':
-      //   break;
+      case 'ssl-unavailable':
+      case 'server-error':
+      case 'network':
+        this._store.setConnectionState(PeerConnectionState.ERROR);
+        break;
       case 'disconnected':
+        this._store.setConnectionState(PeerConnectionState.DISCONNECTED);
+        break;
+      case 'invalid-id':
+      case 'unavailable-id':
+        console.warn(this.logTag + " The given Peer ID is either not allowed or already taken on this server");
+        console.warn(this.logTag + " TODO: If this happens a lot we could try reconnecting with a new ID");
+        this._store.setConnectionState(PeerConnectionState.ERROR);
+        break;
       case 'socket-closed':
       case 'socket-error':
       default:

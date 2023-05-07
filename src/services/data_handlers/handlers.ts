@@ -1,7 +1,8 @@
 import type { PeerContext } from "."
+import type { GameState } from "../game/game"
 
 export const handleRoomInformation = (context: PeerContext, data: RoomInformationMessage) => {
-  console.log('handling room information', data)
+  console.log('handling room information', data.peers, 'lala')
   for (const peer of data.peers) {
     if (
       peer === context.peerService._store.peerId ||
@@ -15,8 +16,12 @@ export const handleRoomInformation = (context: PeerContext, data: RoomInformatio
 }
 
 export const handleStartGame = (context: PeerContext, data: StartGameMessage) => {
-  console.log('handling startGame', data)
+
 }
+
+export const handleInitialSync = (context: PeerContext, data: InitialSyncMessage) => {
+}
+
 
 export type RoomInformationMessage = {
   type: 'room_information'
@@ -26,4 +31,9 @@ export type RoomInformationMessage = {
 export type StartGameMessage = {
   type: 'start_game'
   value: string
+}
+
+export type InitialSyncMessage = {
+  type: 'initial_game_sync',
+  value: GameState
 }
