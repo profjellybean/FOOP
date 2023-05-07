@@ -2,9 +2,11 @@
 import { klona } from 'klona';
 import { ref, type Ref } from "vue";
 import type { PeerService } from '../peer';
+import { PeerServiceHook } from '../peer/types';
 import { ECS, Entity, type EntityMap } from "./ecs";
-import { AppearanceComponent, PositionComponent, MapComponent, AliveComponent } from "./ecs/components";
+import { AliveComponent, AppearanceComponent, MapComponent, PositionComponent } from "./ecs/components";
 import { MouseHelper } from "./ecs/pathfinding";
+import { _handleMove } from './handlers/move';
 
 export type GameSettings = {
   gameId: string;
@@ -56,19 +58,29 @@ export class GameService {
 
     this.stateBuffer = { ...this.currentState.value };
 
-    // send start game event through the peerService
-    if (this._settings.multiplayer && this._settings.networked) {
-      this.peerService!.send({
-        type: "initial_state_sync",
-        value: {
-          state: this.currentState.value
-        }
-      })
+    this.peerService?.setHook(PeerServiceHook.PEER_CONNECTION, (connection) => {
+      console.error("Peer cannot connect to game, game is already running");
+      // todo: maybe emitting an event would also help, haven't tested it yet
+      // connection.emit("game_error", "Game is already running");
+      connection.removeAllListeners();
+      connection.close();
+      return false;
+    });
+
+    if (this.peerService?.peer.value) {
+
+      // send start game event through the peerService
+      if (this._settings.multiplayer && this._settings.networked) {
+        this.peerService!.send({
+          type: "initial_state_sync",
+          value: this.currentState.value
+        })
+      }
+
+      // after sending to peers make sure to await the acks from peers
+
+      window.requestAnimationFrame(this._gameLoop.bind(this));
     }
-
-    // after sending to peers make sure to await the acks from peers
-
-    window.requestAnimationFrame(this._gameLoop.bind(this));
   }
 
   generatePlayers(players: string[] = []): EntityMap {
@@ -110,7 +122,7 @@ export class GameService {
 
     switch (event) {
       case "move":
-        this._handleMove(entity, payload);
+        _handleMove(entity, payload);
         break;
     }
 
@@ -165,13 +177,9 @@ export class GameService {
       default:
         console.warn(`${this.logTag} Unknown direction ${payload}`);
     }
-    //checkCollision();
   }
 
-
-
   _gameLoop() {
-    this.updateOpponentPosition();
 
     // todo: send the game changed gameloop update to peers
     if (this._settings.multiplayer && this._settings.networked) {
