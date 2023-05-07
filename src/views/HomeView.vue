@@ -35,8 +35,6 @@ const createGame = async () => {
 
   await initPeer()
 
-  console.log("peer id is: " + connectionStore.peerId);
-
   copy(window.location.protocol + '//' + window.location.host + "/lobby/" + connectionStore.peerId);
 
   router.push(`/lobby/${connectionStore.peerId}`);
