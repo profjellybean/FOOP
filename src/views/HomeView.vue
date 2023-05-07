@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import router from '@/router';
 import type { PeerService } from '@/services/peer';
-import { useWebrtcConnectionStore } from '@/stores/webrtcConn';
+import { usePeerConnectionStore } from '@/stores/peerConnection';
 import { useClipboard } from '@vueuse/core';
 import { inject, ref } from 'vue';
 
-const connectionStore = useWebrtcConnectionStore();
+const connectionStore = usePeerConnectionStore();
 const peerService = inject('peerService') as PeerService;
 
 const { copy } = useClipboard()

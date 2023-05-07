@@ -1,18 +1,19 @@
-import { PeerConnectionState } from '@/stores/types';
-import { useWebrtcConnectionStore } from '@/stores/webrtcConn';
+import { usePeerConnectionStore } from '@/stores/peerConnection';
+import { PeerConnectionState } from '@/types';
 import { Peer, type DataConnection } from 'peerjs';
 import { ref, type Ref } from 'vue';
-import { DataHandler } from '../data_handlers';
-import { handleInitialSync, handleRoomInformation, handleStartGame } from '../data_handlers/handlers';
+import { DataHandler } from './data_handlers';
+import { handleInitialSync, handleRoomInformation, handleStartGame } from './data_handlers/handlers';
+import type { PeerServiceHook, PeerServiceHooks } from './types';
 
 export class PeerService {
   logTag: String = "[PeerService]"
 
   peer: Ref<Peer | null> = ref(null)
 
-  handler: DataHandler | undefined
+  dataHandler: DataHandler | undefined
 
-  _store = useWebrtcConnectionStore();
+  _store = usePeerConnectionStore();
 
   _initialized: boolean = false
 
@@ -21,16 +22,24 @@ export class PeerService {
   reconnecter?: number; // the interval id that tries to reconnect to the peer
   reconnectionCount: number = 0;
 
-  constructor() {
+  _hooks?: PeerServiceHooks;
+
+  constructor(hooks?: PeerServiceHooks) {
+    this._hooks = hooks;
   }
 
   _serverConfig = {
     // host: 'localhost',
     // port: 9090,
     pingInterval: 2000,
-    debug: 3
+    debug: 1
   };
 
+  /**
+   * Initialises the own peer and sets up the default handlers and behaviour.
+   * @param peerId The optional peer id that we want to initialise our peer with. If not given, a random one will be generated
+   * @returns A promise that resolves to a string containing the error that occurred or true if the peer was initialised successfully
+   */
   async initSelf(peerId?: string): Promise<string | true> {
     if (this.peer.value !== null) {
       this.peer.value.removeAllListeners();
@@ -38,8 +47,8 @@ export class PeerService {
       this.peer.value = null;
     }
 
-    this.handler ??= new DataHandler(this)
-    this._addDefaultHandlers(this.handler);
+    this.dataHandler ??= new DataHandler(this)
+    this._addDefaultHandlers(this.dataHandler);
     this._store.setConnectionState(PeerConnectionState.CONNECTING);
 
     if (peerId !== undefined) {
@@ -56,6 +65,7 @@ export class PeerService {
         return
       }
       this.peer.value.on('open', (id) => {
+        this._hooks?.onInit?.(id);
         this._store.setPeerId(id);
         this._store.setConnectionState(PeerConnectionState.CONNECTED);
         console.log(this.logTag + ' Peer ID is: ' + id)
@@ -70,13 +80,15 @@ export class PeerService {
 
       this.peer.value.on('connection', (conn) => {
         console.log(this.logTag + ' New connection event from remote peer', conn.peer)
-        this.initPeer(conn)
+        if (this._hooks?.onPeerConnection === undefined || this._hooks?.onPeerConnection!(conn)) {
+          this._initPeer(conn)
+        }
       })
 
       this.peer.value.on('disconnected', (peerId) => {
         console.log(this.logTag + ' Peer disconnected', peerId);
         this._store.setConnectionState(PeerConnectionState.DISCONNECTED);
-        // todo: cleanup peer internally
+        // todo: should we try to reconnect with our id like 3 times or so?
       })
 
       this.peer.value.on('close', () => {
@@ -88,7 +100,80 @@ export class PeerService {
     });
   }
 
-  initPeer(conn: DataConnection) {
+  /**
+   * Connects to a peer by their ID.
+   * @param peerId The peer to connect to
+   * @returns True if the connection was established successfully, false otherwise
+   */
+  async connectToPeer(peerId: string): Promise<boolean> {
+    console.log(this.logTag + " Connecting to peer", peerId);
+    if (!this.peer) {
+      console.error(this.logTag + ' Peer not initialized')
+      return false
+    }
+
+    this._store.setPeerConnectionState(peerId, PeerConnectionState.CONNECTING);
+
+    let conn: DataConnection;
+    try {
+      conn = this.peer.value!.connect(peerId)
+    } catch (e) {
+      console.error(this.logTag + ' Connection to peer failed: ', peerId)
+      console.error(e);
+      return false
+    }
+
+    this._initPeer(conn);
+
+    return new Promise((resolve, reject) => {
+      conn.on('open', () => {
+        console.log(this.logTag + ' Connection to peer established, peer id: ', peerId)
+        this._store.setPeerConnectionState(peerId, PeerConnectionState.CONNECTED);
+        resolve(true)
+      });
+
+      conn.on('error', (err: any) => {
+        console.log(this.logTag + '#[connectToPeer]: Error during connection to: ', peerId)
+        this._store.setPeerConnectionState(peerId, PeerConnectionState.ERROR);
+        this._handlePeerError(err, reject);
+      });
+    });
+
+  }
+
+  setHook<T extends PeerServiceHook>(name: T, hook: PeerServiceHooks[T]) {
+    this._hooks![name] = hook;
+  }
+
+  closeAllConnections() {
+    this.peerConnections.value.forEach((conn) => {
+      conn.close()
+    })
+  }
+
+  /**
+   * This not only closes the connections but completely destroys the local peer.
+   * We need to init again after calling this method.
+   */
+  destroy() {
+    this.closeAllConnections()
+    this.peer.value!.destroy()
+  }
+
+  send(data: any) {
+    // todo: this is somehow very simple .. maaaybe too simple? 😁
+    for (const peer of this.peerConnections.value) {
+      peer.send(data)
+    }
+  }
+
+  /**
+   * Takes a given connection and adds the default handlers and behaviour to it.
+   * Is most likely only to be called internally, use `connectToPeer` for actually connecting to a peer.
+   * @param conn The connection used for adding handlers and default behaviour
+   * @returns void
+   */
+  _initPeer(conn: DataConnection) {
     if (!this.peer.value) {
       console.error(this.logTag + ' Peer not initialized')
       return
@@ -121,74 +206,22 @@ export class PeerService {
 
     conn.on('data', (data: any) => {
       console.log("data received", data);
-      this.handler!.handleData(data)
+      this.dataHandler!.handleData(data)
     })
 
     conn.on('close', () => {
       console.log(this.logTag + ' Connection from peer closed, peer id: ', conn.peer)
       this.peerConnections.value = this.peerConnections.value.filter((c) => c.peer !== conn.peer)
+      this._hooks?.onPeerDisconnected?.(conn.peer);
       this._store.setPeerConnectionState(conn.peer, PeerConnectionState.DISCONNECTED);
     });
 
     conn.on('error', (err: any) => {
       console.error(this.logTag + ' Peer connection error ', err)
       console.error(this.logTag + ' error type ', err.type)
+      this._hooks?.onPeerError?.(conn.peer);
       this._store.setPeerConnectionState(conn.peer, PeerConnectionState.ERROR);
     });
-  }
-
-  async connectToPeer(peerId: string): Promise<boolean> {
-    console.log(this.logTag + " Connecting to peer", peerId);
-    if (!this.peer) {
-      console.error(this.logTag + ' Peer not initialized')
-      return false
-    }
-
-    this._store.setPeerConnectionState(peerId, PeerConnectionState.CONNECTING);
-
-    let conn: DataConnection;
-    try {
-      conn = this.peer.value!.connect(peerId)
-    } catch (e) {
-      console.error(this.logTag + ' Connection to peer failed: ', peerId)
-      console.error(e);
-      return false
-    }
-
-    this.initPeer(conn);
-
-    return new Promise((resolve, reject) => {
-      conn.on('open', () => {
-        console.log(this.logTag + ' Connection to peer established, peer id: ', peerId)
-        this._store.setPeerConnectionState(peerId, PeerConnectionState.CONNECTED);
-        resolve(true)
-      });
-
-      conn.on('error', (err: any) => {
-        console.log(this.logTag + '#[connectToPeer]: Error during connection to: ', peerId)
-        this._store.setPeerConnectionState(peerId, PeerConnectionState.ERROR);
-        this._handlePeerError(err, reject);
-      });
-    });
-
-  }
-
-  closeAllConnections() {
-    this.peerConnections.value.forEach((conn) => {
-      conn.close()
-    })
-  }
-
-  destroy() {
-    this.closeAllConnections()
-    this.peer.value!.destroy()
-  }
-
-  send(data: any) {
-    // todo: this is somehow very simple .. maaaybe too simple? 😁
-    for (const peer of this.peerConnections.value) {
-      peer.send(data)
-    }
   }
 
   _addDefaultHandlers(handler: DataHandler) {

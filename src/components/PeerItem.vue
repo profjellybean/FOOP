@@ -1,10 +1,10 @@
 <script setup lang="ts">
+import { usePeerConnectionStore } from '@/stores/peerConnection';
 import { PeerConnectionState } from '@/stores/types';
-import { useWebrtcConnectionStore } from '@/stores/webrtcConn';
 import { computed, type ComputedRef } from 'vue';
 
 
-const peerStore = useWebrtcConnectionStore();
+const peerStore = usePeerConnectionStore();
 
 const props = defineProps<{
   peerId: string;

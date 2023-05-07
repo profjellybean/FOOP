@@ -3,18 +3,17 @@ import PeerItem from '@/components/PeerItem.vue';
 import router from '@/router';
 import { GameService } from '@/services/game/game';
 import { PeerService } from '@/services/peer';
-import { PeerConnectionState } from '@/stores/types';
-import { useWebrtcConnectionStore } from '@/stores/webrtcConn';
+import { usePeerConnectionStore } from '@/stores/peerConnection';
+import { PeerConnectionState } from '@/types';
 import { computed, inject, onBeforeMount, provide, ref } from 'vue';
 import { onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router';
 
 const logTag = "[LobbyView]";
 
 // todo: rename the store
-const connectionStore = useWebrtcConnectionStore();
+const connectionStore = usePeerConnectionStore();
 
 let peerService = inject('peerService') as PeerService;
-const gameService = new GameService();
 
 const lobbyId = computed(() => router.currentRoute.value.params.lobbyId);
 
@@ -96,10 +95,13 @@ onBeforeMount(async () => {
 });
 
 const startGame = () => {
+  const gameService = new GameService(peerService, undefined, {
+    gameId: lobbyId.value as string,
+    networked: true,
+    multiplayer: true
+  });
   provide('gameService', gameService);
-  // gameService.startGame();
-
-  router.push(`/game/${lobbyId.value}`);
+  gameService.startGame();
 }
 
 const leaveLobby = async () => {
