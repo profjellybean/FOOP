@@ -3,8 +3,8 @@ import { PeerConnectionState } from '@/types';
 import { Peer, type DataConnection } from 'peerjs';
 import { ref, type Ref } from 'vue';
 import { DataHandler } from './data_handlers';
-import { handleInitialSync, handleRoomInformation, handleStartGame } from './data_handlers/handlers';
-import type { PeerServiceHook, PeerServiceHooks } from './types';
+import { handleRoomInformation } from './data_handlers/handlers';
+import type { LobbySettings, PeerServiceHook, PeerServiceHooks } from './types';
 
 export class PeerService {
   logTag: String = "[PeerService]"
@@ -12,6 +12,8 @@ export class PeerService {
   peer: Ref<Peer | null> = ref(null)
 
   dataHandler: DataHandler | undefined
+
+  lobbySettings = ref({} as LobbySettings);
 
   _store = usePeerConnectionStore();
 
@@ -22,10 +24,13 @@ export class PeerService {
   reconnecter?: number; // the interval id that tries to reconnect to the peer
   reconnectionCount: number = 0;
 
-  _hooks?: PeerServiceHooks;
+  _hooks: PeerServiceHooks = {};
 
   constructor(hooks?: PeerServiceHooks) {
-    this._hooks = hooks;
+    this._hooks = {
+      ...this._hooks,
+      ...hooks,
+    };
   }
 
   _serverConfig = {
@@ -40,7 +45,7 @@ export class PeerService {
    * @param peerId The optional peer id that we want to initialise our peer with. If not given, a random one will be generated
    * @returns A promise that resolves to a string containing the error that occurred or true if the peer was initialised successfully
    */
-  async initSelf(peerId?: string): Promise<string | true> {
+  async initSelf(peerId?: string, isHost = false): Promise<string | true> {
     if (this.peer.value !== null) {
       this.peer.value.removeAllListeners();
       this.peer.value.destroy();
@@ -68,6 +73,10 @@ export class PeerService {
         this._hooks?.onInit?.(id);
         this._store.setPeerId(id);
         this._store.setConnectionState(PeerConnectionState.CONNECTED);
+        if (isHost) {
+          console.log("is host, setting lobby id to own id")
+          this.lobbySettings.value.lobbyId = id;
+        }
         console.log(this.logTag + ' Peer ID is: ' + id)
         resolve(true)
       });
@@ -105,7 +114,7 @@ export class PeerService {
    * @param peerId The peer to connect to
    * @returns True if the connection was established successfully, false otherwise
    */
-  async connectToPeer(peerId: string): Promise<boolean> {
+  async connectToPeer(peerId: string, isLobby = false): Promise<boolean> {
     console.log(this.logTag + " Connecting to peer", peerId);
     if (!this.peer) {
       console.error(this.logTag + ' Peer not initialized')
@@ -123,12 +132,23 @@ export class PeerService {
       return false
     }
 
+    if (this.peerConnections.value.filter((c) => c.peer === conn.peer).length > 0) {
+      // check if we already have an option connection to the given peer
+      console.log(this.logTag + ' Connection already exists, peer id: ', conn.peer);
+      this._store.setPeerConnectionState(peerId, PeerConnectionState.CONNECTED);
+      return true;
+    }
+
     this._initPeer(conn);
 
     return new Promise((resolve, reject) => {
       conn.on('open', () => {
         console.log(this.logTag + ' Connection to peer established, peer id: ', peerId)
         this._store.setPeerConnectionState(peerId, PeerConnectionState.CONNECTED);
+        if (isLobby) {
+          console.log("is lobby, setting lobby id to peer id")
+          this.lobbySettings.value.lobbyId = peerId;
+        }
         resolve(true)
       });
 
@@ -163,6 +183,7 @@ export class PeerService {
   send(data: any) {
     // todo: this is somehow very simple .. maaaybe too simple? 😁
     for (const peer of this.peerConnections.value) {
+      console.log(this.logTag + " Sending: ", data, " to peer: ", peer.peer)
       peer.send(data)
     }
   }
@@ -176,12 +197,6 @@ export class PeerService {
   _initPeer(conn: DataConnection) {
     if (!this.peer.value) {
       console.error(this.logTag + ' Peer not initialized')
-      return
-    }
-
-    if (this.peerConnections.value.filter((c) => c.peer === conn.peer).length > 0) {
-      // check if we already have an option connection to the given peer
-      console.log(this.logTag + ' Connection already exists, peer id: ', conn.peer)
       return
     }
 
@@ -206,7 +221,7 @@ export class PeerService {
 
     conn.on('data', (data: any) => {
       console.log("data received", data);
-      this.dataHandler!.handleData(data)
+      this.dataHandler!.handleData(conn, data)
     })
 
     conn.on('close', () => {
@@ -226,8 +241,6 @@ export class PeerService {
 
   _addDefaultHandlers(handler: DataHandler) {
     handler.registerHandler('room_information', handleRoomInformation);
-    handler.registerHandler('initial_game_sync', handleInitialSync);
-    handler.registerHandler('start_game', handleStartGame)
   }
 
   _handlePeerError(err: any, callback: Function) { // err is actually a PeerError

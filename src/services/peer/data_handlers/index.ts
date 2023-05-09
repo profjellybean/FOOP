@@ -1,3 +1,4 @@
+import type { DataConnection } from 'peerjs'
 import type { PeerService } from '..'
 import type { PeerContext } from './types'
 
@@ -11,25 +12,29 @@ export class DataHandler {
     this.peerService = peerService
   }
 
-  handleData(data: any) {
+  handleData(conn: DataConnection, data: any) {
     if (typeof data === 'object') {
-      this._handleDataObject(data)
+      this._handleDataObject(conn, data)
       return
     }
     console.warn(this.logTag + ' Unknown data type', typeof data)
   }
 
-  _handleDataObject(data: any) {
+  _handleDataObject(conn: DataConnection, data: any) {
     const handler = this._handlers[data.type]
 
     if (handler === undefined || handler === null) {
       console.error(this.logTag + ' Unknown type for data object', data.type)
     }
 
-    handler({ peerService: this.peerService }, data);
+    handler({ peerService: this.peerService, senderId: conn.peer }, data);
   }
 
   registerHandler(type: string, handler: (context: PeerContext, data: any) => void) {
     this._handlers[type] = handler
+  }
+
+  removeHandler(type: string) {
+    delete this._handlers[type]
   }
 }
