@@ -2,8 +2,8 @@ import type { GameState } from "@/services/game/game";
 import type { PeerService } from "@/services/peer";
 
 export type PeerContext = {
-  lobbyId: string | null
-  peerService: PeerService
+  peerService: PeerService;
+  senderId: string;
 }
 
 export type RoomInformationMessage = {

@@ -13,3 +13,7 @@ export type PeerServiceHooks = {
   [PeerServiceHook.PEER_DISCONNECTED]?: (id: string) => void;
   [PeerServiceHook.PEER_ERROR]?: (error: any) => void;
 }
+
+export type LobbySettings = {
+  lobbyId: string;
+}

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { usePeerConnectionStore } from '@/stores/peerConnection';
-import { PeerConnectionState } from '@/stores/types';
+import { PeerConnectionState } from '@/types';
 import { computed, type ComputedRef } from 'vue';
 
 

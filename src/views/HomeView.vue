@@ -21,8 +21,8 @@ const parseLobbyId = (lobbyId: string) => {
   return lobbyId
 }
 
-const initPeer = async () => {
-  const res = await peerService!.initSelf();
+const initPeer = async (isHost = false) => {
+  const res = await peerService!.initSelf(undefined, isHost);
 
   if (!res) {
     console.error("could not init peer service correctly, cannot create game");
@@ -33,7 +33,7 @@ const initPeer = async () => {
 const createGame = async () => {
   if (peerService === undefined) return
 
-  await initPeer()
+  await initPeer(true)
 
   copy(window.location.protocol + '//' + window.location.host + "/lobby/" + connectionStore.peerId);
 
