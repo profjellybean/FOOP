@@ -3,8 +3,16 @@ export type GameSettings = {
   networked: boolean;
 };
 
+export enum GameStatus {
+  initial,
+  started,
+  finished,
+  paused,
+  error
+}
+
 export type GameContext = {
-  started: boolean;
+  started: GameStatus;
   gameId: string;
   players?: PlayerMap;
 }

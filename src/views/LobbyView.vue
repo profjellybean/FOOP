@@ -14,6 +14,8 @@ const connectionStore = usePeerConnectionStore();
 
 let peerService = inject('peerService') as PeerService;
 
+const showPauseButton = ref(false);
+
 const gameService = new GameService(peerService, undefined, {
   networked: true,
   multiplayer: true
@@ -38,6 +40,12 @@ watch(pageState, (value) => {
     gameService.initMultiplayer();
   }
 });
+
+watch(gameService.context, (value) => {
+  if (value.started) {
+    showPauseButton.value = true;
+  }
+}, { deep: true })
 
 const connections = computed(() => {
   return Object.keys(connectionStore.peerConnectionStates);
@@ -118,6 +126,10 @@ const startGame = () => {
   gameService.startGame();
 }
 
+const pauseGame = () => {
+  gameService.pauseGame();
+}
+
 const leaveLobby = async () => {
   router.push(`/`);
 }
@@ -154,6 +166,10 @@ const leaveLobby = async () => {
           <button v-if="yourGame"
             class="w-full mt-6 bg-blue-700/40 hover:bg-blue-700/60 border border-blue-700 rounded-lg p-2"
             @click="startGame">Start Game</button>
+
+          <button v-if="yourGame && showPauseButton"
+            class="w-full mt-6 bg-blue-700/40 hover:bg-blue-700/60 border border-blue-700 rounded-lg p-2"
+            @click="pauseGame">Pause Game</button>
         </div>
       </div>
     </div>
