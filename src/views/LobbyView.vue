@@ -2,6 +2,7 @@
 import PeerItem from '@/components/PeerItem.vue';
 import router from '@/router';
 import { GameService } from '@/services/game/game';
+import { GameStatus } from '@/services/game/types';
 import { PeerService } from '@/services/peer';
 import { usePeerConnectionStore } from '@/stores/peerConnection';
 import { PeerConnectionState } from '@/types';
@@ -42,7 +43,7 @@ watch(pageState, (value) => {
 });
 
 watch(gameService.context, (value) => {
-  if (value.started) {
+  if (value.status == GameStatus.started) {
     showPauseButton.value = true;
   }
 }, { deep: true })

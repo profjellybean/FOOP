@@ -16,6 +16,10 @@ export const usePeerConnectionStore = defineStore('webrtc', () => {
     peerConnectionStates.value[id] = state;
   }
 
+  function deletePeerFromState(id: string) {
+    delete peerConnectionStates.value[id];
+  }
+
   function setConnectionState(state: PeerConnectionState) {
     connectionState.value = state;
   }
@@ -26,6 +30,7 @@ export const usePeerConnectionStore = defineStore('webrtc', () => {
     peerConnectionStates,
     setPeerId,
     setPeerConnectionState,
-    setConnectionState
+    setConnectionState,
+    deletePeerFromState
   }
 });

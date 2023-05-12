@@ -226,9 +226,10 @@ export class PeerService {
 
     conn.on('close', () => {
       console.log(this.logTag + ' Connection from peer closed, peer id: ', conn.peer)
-      this.peerConnections.value = this.peerConnections.value.filter((c) => c.peer !== conn.peer)
+      conn.close();
+      this.peerConnections.value = this.peerConnections.value.filter((c) => c.peer !== conn.peer);
       this._hooks?.onPeerDisconnected?.(conn.peer);
-      this._store.setPeerConnectionState(conn.peer, PeerConnectionState.DISCONNECTED);
+      this._store.deletePeerFromState(conn.peer);
     });
 
     conn.on('error', (err: any) => {

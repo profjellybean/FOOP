@@ -12,7 +12,7 @@ export enum GameStatus {
 }
 
 export type GameContext = {
-  started: GameStatus;
+  status: GameStatus;
   gameId: string;
   players?: PlayerMap;
 }

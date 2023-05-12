@@ -60,8 +60,6 @@ export class GameService {
 
       this.context.value.gameId = this.peerService!.lobbySettings.value.lobbyId;
 
-      console.log(this.context.value.gameId, this.peerService!.peer.value!.id, this.peerService!.lobbySettings.value)
-      // console.log(settings.lobbyId, this.peerService!.peer.value!.id, this.context.value.gameId === this.peerService!.peer.value!.id)
       if (this.context.value.gameId === this.peerService!.peer.value!.id) {
         // user is host
         this.peerService!.dataHandler!.registerHandler("sync_ack", this._handleInitialSyncAck.bind(this));
@@ -92,7 +90,7 @@ export class GameService {
 
     if (this._settings.multiplayer && this._settings.networked) {
       this.peerService!.setHook(PeerServiceHook.PEER_CONNECTION, (connection) => {
-        if (this.context.value.started === GameStatus.started && !this.context.value.players![connection.peer]) {
+        if (this.context.value.status === GameStatus.started && !this.context.value.players![connection.peer]) {
           console.error(this.logTag + " Peer cannot connect to game, game is already running");
           // todo: maybe emitting an event would also help, haven't tested it yet
           // connection.emit("game_error", "Game is already running");
@@ -129,6 +127,7 @@ export class GameService {
     }
 
     this.gameLoopPlayer.pause();
+    this.context.value.status = GameStatus.paused;
   }
 
   generatePlayers(players: string[] = []): EntityMap {
@@ -244,6 +243,11 @@ export class GameService {
     }
   }
 
+  _registerInGameHandlers() {
+    this.peerService!.dataHandler!.registerHandler("pause_game", this._handlePauseGame.bind(this));
+    this.peerService!.dataHandler!.registerHandler("update", this._handleUpdate.bind(this));
+  }
+
   /**
    * Handles the initial sync of the given data, sending the host an ack message, when we
    * successfully imported the game state.
@@ -307,14 +311,9 @@ export class GameService {
         value: this.context.value.gameId
       });
       this._registerInGameHandlers();
-      this.context.value.started = GameStatus.started;
+      this.context.value.status = GameStatus.started;
       this.gameLoopPlayer.resume();
     }
-  }
-
-  _registerInGameHandlers() {
-    this.peerService!.dataHandler!.registerHandler("pause_game", this._handlePauseGame.bind(this));
-    this.peerService!.dataHandler!.registerHandler("update", this._handleUpdate.bind(this));
   }
 
   /**
@@ -327,14 +326,14 @@ export class GameService {
     console.log(this.logTag + " Starting gaame");
 
     this._registerInGameHandlers();
-    this.context.value.started = GameStatus.started;
+    this.context.value.status = GameStatus.started;
     this.gameLoopPlayer.resume();
   }
 
   async _handlePauseGame(context: PeerContext, data: any) {
     console.log(this.logTag + " Pausing game");
 
-    this.context.value.started = GameStatus.paused;
+    this.context.value.status = GameStatus.paused;
     this.gameLoopPlayer.pause();
   }
 
