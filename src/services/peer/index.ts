@@ -47,9 +47,7 @@ export class PeerService {
    */
   async initSelf(peerId?: string, isHost = false): Promise<string | true> {
     if (this.peer.value !== null) {
-      this.peer.value.removeAllListeners();
-      this.peer.value.destroy();
-      this.peer.value = null;
+      this.destroy();
     }
 
     this.dataHandler ??= new DataHandler(this)
@@ -64,7 +62,7 @@ export class PeerService {
 
     return new Promise((resolve, reject) => {
       if (!this.peer.value) {
-        console.log(this.logTag + ' Peer not initialized on initSelf')
+        console.debug(this.logTag + ' Peer not initialized on initSelf')
         this._store.setConnectionState(PeerConnectionState.ERROR);
         reject('peer-not-initialized');
         return
@@ -74,7 +72,6 @@ export class PeerService {
         this._store.setPeerId(id);
         this._store.setConnectionState(PeerConnectionState.CONNECTED);
         if (isHost) {
-          console.log("is host, setting lobby id to own id")
           this.lobbySettings.value.lobbyId = id;
         }
         console.log(this.logTag + ' Peer ID is: ' + id)
@@ -88,23 +85,21 @@ export class PeerService {
       });
 
       this.peer.value.on('connection', (conn) => {
-        console.log(this.logTag + ' New connection event from remote peer', conn.peer)
+        console.debug(this.logTag + ' New connection event from remote peer', conn.peer)
         if (this._hooks?.onPeerConnection === undefined || this._hooks?.onPeerConnection!(conn)) {
           this._initPeer(conn)
         }
       })
 
       this.peer.value.on('disconnected', (peerId) => {
-        console.log(this.logTag + ' Peer disconnected', peerId);
+        console.debug(this.logTag + ' Peer disconnected', peerId);
         this._store.setConnectionState(PeerConnectionState.DISCONNECTED);
         // todo: should we try to reconnect with our id like 3 times or so?
       })
 
       this.peer.value.on('close', () => {
         // todo emit to the pinia, that the peer is destroyed and we need to instantiate a new one
-        this.peer.value!.removeAllListeners();
-        this.peer.value!.destroy();
-        this.peer.value = null;
+        this.destroy();
       });
     });
   }
@@ -115,7 +110,7 @@ export class PeerService {
    * @returns True if the connection was established successfully, false otherwise
    */
   async connectToPeer(peerId: string, isLobby = false): Promise<boolean> {
-    console.log(this.logTag + " Connecting to peer", peerId);
+    console.debug(this.logTag + " Connecting to peer", peerId);
     if (!this.peer) {
       console.error(this.logTag + ' Peer not initialized')
       return false
@@ -134,7 +129,7 @@ export class PeerService {
 
     if (this.peerConnections.value.filter((c) => c.peer === conn.peer).length > 0) {
       // check if we already have an option connection to the given peer
-      console.log(this.logTag + ' Connection already exists, peer id: ', conn.peer);
+      console.debug(this.logTag + ' Connection already exists, peer id: ', conn.peer);
       this._store.setPeerConnectionState(peerId, PeerConnectionState.CONNECTED);
       return true;
     }
@@ -143,17 +138,18 @@ export class PeerService {
 
     return new Promise((resolve, reject) => {
       conn.on('open', () => {
-        console.log(this.logTag + ' Connection to peer established, peer id: ', peerId)
+        console.debug(this.logTag + ' Connection to peer established, peer id: ', peerId)
         this._store.setPeerConnectionState(peerId, PeerConnectionState.CONNECTED);
+        this.reconnectionCount = 0; // reset reconnection could, no matter if needed previously or not
         if (isLobby) {
-          console.log("is lobby, setting lobby id to peer id")
+          console.debug(this.logTag + " is lobby, setting lobby id to peer id")
           this.lobbySettings.value.lobbyId = peerId;
         }
         resolve(true)
       });
 
       conn.on('error', (err: any) => {
-        console.log(this.logTag + '#[connectToPeer]: Error during connection to: ', peerId)
+        console.debug(this.logTag + '#[connectToPeer]: Error during connection to: ', peerId)
         this._store.setPeerConnectionState(peerId, PeerConnectionState.ERROR);
         this._handlePeerError(err, reject);
       });
@@ -172,18 +168,21 @@ export class PeerService {
   }
 
   /**
-   * This not only closes the connections but completely destroys the local peer.
+   * This not only closes the connections but completely destroys th^e local peer.
    * We need to init again after calling this method.
    */
   destroy() {
-    this.closeAllConnections()
-    this.peer.value!.destroy()
+    this.closeAllConnections();
+    this.peerConnections.value = [];
+    this.peer.value!.removeAllListeners();
+    this.peer.value!.destroy();
+    this.peer.value = null;
   }
 
   send(data: any) {
     // todo: this is somehow very simple .. maaaybe too simple? 😁
     for (const peer of this.peerConnections.value) {
-      console.log(this.logTag + " Sending: ", data, " to peer: ", peer.peer)
+      console.debug(this.logTag + " Sending: ", data, " to peer: ", peer.peer)
       peer.send(data)
     }
   }
@@ -201,7 +200,7 @@ export class PeerService {
     }
 
     conn.on('open', () => {
-      console.log(`${this.logTag} New connection from peer ${conn.peer} established`);
+      console.debug(`${this.logTag} New connection from peer ${conn.peer} established`);
       this._store.setPeerConnectionState(conn.peer, PeerConnectionState.CONNECTED);
 
       // tell the peer about other peers in our session
@@ -220,12 +219,12 @@ export class PeerService {
     });
 
     conn.on('data', (data: any) => {
-      console.log("data received", data);
+      console.debug("data received", data);
       this.dataHandler!.handleData(conn, data)
     })
 
     conn.on('close', () => {
-      console.log(this.logTag + ' Connection from peer closed, peer id: ', conn.peer)
+      console.debug(this.logTag + ' Connection from peer closed, peer id: ', conn.peer)
       conn.close();
       this.peerConnections.value = this.peerConnections.value.filter((c) => c.peer !== conn.peer);
       this._hooks?.onPeerDisconnected?.(conn.peer);
@@ -261,9 +260,9 @@ export class PeerService {
         }
         this.reconnectionCount++;
         if (this.reconnectionCount < 4) {
-          console.log(this.logTag + " adding reconnecter attempt in 1 sec");
+          console.debug(this.logTag + " adding reconnecter attempt in 1 sec");
           this.reconnecter = setTimeout(() => {
-            console.log(this.logTag + " Trying to reconnect to " + peerId);
+            console.debug(this.logTag + " Trying to reconnect to " + peerId);
             clearTimeout(this.reconnecter);
             this.connectToPeer(peerId);
           }, 2000);
