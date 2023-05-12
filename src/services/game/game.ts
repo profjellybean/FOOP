@@ -3,7 +3,7 @@ import { klona } from 'klona';
 import { ref, type Ref } from "vue";
 import type { PeerService } from '../peer';
 import { ECS, Entity, type EntityMap } from "./ecs";
-import { AliveComponent, AppearanceComponent, MapComponent, PositionComponent } from "./ecs/components";
+import { AppearanceComponent, PositionComponent, MapComponent, AliveComponent } from "./ecs/components";
 import { MouseHelper } from "./ecs/pathfinding";
 
 export type GameSettings = {
@@ -28,15 +28,23 @@ export class GameService {
   // constructor(peerService: PeerService, entitySystem?: ECS) {
   constructor(peerService?: PeerService, entitySystem?: ECS, settings?: GameSettings, numOfMice?: number) {
     this._settings = settings ?? { gameId: "game1", multiplayer: false, networked: false };
-    this.mouseHelper = new MouseHelper();
+    this.mouseHelper = new MouseHelper(this.map);
     this.numberOfMice = this.mouseHelper.getNumberOfMice();
     this.peerService = peerService;
     this.entitySystem = entitySystem ?? new ECS(this.numberOfMice);
     this.map.value.init();
   }
 
+  updateOpponentPosition() {
+    for (let i = 1; i <= this.numberOfMice; i++) {
+      const mouse = this.entitySystem.getMouse(i.toString());
+      if (this.entitySystem.isAlive(mouse.id)) {
+        this.mouseHelper.updateMousePosition(mouse);
+      }
+    }
+  }
+
   startGame(players?: string[]) {
-    //console.log(this.map.value.map);
     this.currentState.value = {
       players: {
         ...this.generatePlayers(players)
@@ -68,7 +76,7 @@ export class GameService {
     for (const playerId of players) {
       const ent = this.entitySystem.createEntity(playerId);
       ent.addComponent(new AppearanceComponent(), { shape: 'cat' });
-      ent.addComponent(new PositionComponent('pos'), { x: (Math.random() * 1000) / (Math.random() * 10), y: (Math.random() * 1000) / (Math.random() * 10) });
+      ent.addComponent(new PositionComponent('pos'), { x: 50, y: 50 });
       // todo: add a collision component, to know when mice collide with cats
       // ent.addComponent(new CollisionComponent());
 
@@ -83,7 +91,7 @@ export class GameService {
       const ent = this.entitySystem.createEntity();
       ent.addComponent(new AppearanceComponent(), { shape: 'mouse' });
       ent.addComponent(new PositionComponent('pos'), { x: this.mouseHelper.getInitialMouseX(), y: this.mouseHelper.getInitialMouseY() });
-      ent.addComponent(new PositionComponent('goal'), { x: this.mouseHelper.getGoalMouseX(), y: this.mouseHelper.getGoalMouseY() });
+      ent.addComponent(new PositionComponent('goal'), { x: 80, y: 0 });
       ent.addComponent(new AliveComponent, { isAlive: true });
       // todo: add a collision component, to know when mice collide with cats
       // ent.addComponent(new CollisionComponent());
@@ -109,28 +117,61 @@ export class GameService {
     this.stateBuffer.players[entityId] = entity;
   }
 
+  checkBorder(x: number, y: number) {
+    if (this.map.value.map![x] == undefined) {
+      return false;
+    }
+    if (this.map.value.map![x][y] == undefined) {
+      return false;
+    }
+    return true;
+  }
+
   _handleMove(entity: Entity, payload: string) {
     const pos = entity.getComponent<PositionComponent>("pos");
     switch (payload) {
       case "up":
-        pos.y = pos.y! - 10;
-        break;
-      case "down":
-        pos.y = pos.y! + 10;
-        break;
-      case "left":
-        pos.x = pos.x! - 10;
+        if (!this.checkBorder(pos.x! - 1, pos.y!)) {
+          break;
+        }
+        this.map.value.map![pos.x!][pos.y!].occupied = null;
+        pos.x = pos.x! - 1;
+        this.map.value.map![pos.x!][pos.y!].occupied = entity;
         break;
       case "right":
-        pos.x = pos.x! + 10;
+        if (!this.checkBorder(pos.x!, pos.y! + 1)) {
+          break;
+        }
+        this.map.value.map![pos.x!][pos.y!].occupied = null;
+        pos.y = pos.y! + 1;
+        this.map.value.map![pos.x!][pos.y!].occupied = entity;
+        break;
+      case "left":
+        if (!this.checkBorder(pos.x! - 1, pos.y! - 1)) {
+          break;
+        }
+        this.map.value.map![pos.x!][pos.y!].occupied = null;
+        pos.y = pos.y! - 1;
+        this.map.value.map![pos.x!][pos.y!].occupied = entity;
+        break;
+      case "down":
+        if (!this.checkBorder(pos.x! + 1, pos.y!)) {
+          break;
+        }
+        this.map.value.map![pos.x!][pos.y!].occupied = null;
+        pos.x = pos.x! + 1;
+        this.map.value.map![pos.x!][pos.y!].occupied = entity;
         break;
       default:
         console.warn(`${this.logTag} Unknown direction ${payload}`);
     }
+    //checkCollision();
   }
 
-  async _gameLoop(): Promise<void> {
-    this.entitySystem.updateOpponentPosition();
+
+
+  _gameLoop() {
+    this.updateOpponentPosition();
 
     // todo: send the game changed gameloop update to peers
     if (this._settings.multiplayer && this._settings.networked) {

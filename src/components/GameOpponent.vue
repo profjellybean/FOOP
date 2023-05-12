@@ -8,15 +8,16 @@ const props = defineProps<{
 }>();
 
 const position = computed(() => {
-  return props.mouse.getComponent<PositionComponent>('pos');
+  let pos = props.mouse.getComponent<PositionComponent>('pos')
+  return document.getElementById(pos.x!.toString() + ' ' + pos.y!.toString())?.getBoundingClientRect();
 });
 
 </script>
 
 <template>
   <div class="absolute h-2 w-2 bg-blue-400" :style="{
-    top: `${position.x}px`,
-    left: `${position.y}px`
+    top: `${position!.top}px`,
+    left: `${position!.left}px`
   }">
   </div>
 </template>

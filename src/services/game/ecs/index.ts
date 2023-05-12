@@ -6,11 +6,20 @@ export type EntityMap = { [key: string]: Entity };
 export class ECS {
   _entityCount: number = 0;
   _entities: EntityMap = {};
-  mouseService = new MouseHelper();
   numberOfMice: number;
 
-  constructor (numOfMice: number) {
+
+
+  constructor(numOfMice: number) {
     this.numberOfMice = numOfMice;
+  }
+
+  getMouse(id: String): Entity {
+    return this._entities[`${id}`];
+  }
+
+  isAlive(id: String): boolean {
+    return this._entities[`${id}`].getComponent<AliveComponent>("isAlive").isAlive!;
   }
 
   createEntity(preferredId?: string): Entity {
@@ -35,15 +44,6 @@ export class ECS {
 
   update(entities: EntityMap) {
     this.importEntities(entities);
-  }
-
-  updateOpponentPosition() {
-    for (let i = 1; i <= this.numberOfMice; i++) {
-      const mouse = this._entities[String(i)];
-      if (mouse.getComponent<AliveComponent>("isAlive")) {
-        this.mouseService.updateMousePosition(mouse);
-      }
-    }
   }
 }
 

@@ -1,13 +1,21 @@
 import type { Entity } from ".";
 import type { AliveComponent, PositionComponent } from "./components";
+import type { MapComponent } from "./components";
+import type { Ref } from "vue";
 
 export class MouseHelper {
     private numberOfMice: number = 25;
-    private mouseStepSize: number = 5;
     private mouseWinCounter: number = 0;
+    private map: Ref<MapComponent>;
 
     private mousePos?: Pos;
     private goalPos?: Pos;
+
+    constructor(map: Ref<MapComponent>) {
+        this.map = map;
+    }
+
+
 
     async updateMousePosition(mouse: Entity): Promise<void> {
         return new Promise((resolve, reject) => {
@@ -16,7 +24,10 @@ export class MouseHelper {
 
             const newPos = this.calcStep();
 
-            if (newPos.x === undefined && newPos.y === undefined) {
+            this.map.value.map![this.mousePos!.x!][this.mousePos!.y!].occupied = null;
+            this.map.value.map![newPos.x!][newPos.y!].occupied = mouse;
+
+            if (newPos.x === this.goalPos.x && newPos.y === this.goalPos.y || this.mousePos!.x === this.goalPos!.x && this.mousePos!.y === this.goalPos!.y) {
                 mouse.getComponent<AliveComponent>("isAlive").isAlive = false;
                 this.mouseWinCounter++;
                 resolve();
@@ -27,32 +38,19 @@ export class MouseHelper {
 
             resolve();
         });
-
-        //console.log(mouse.id + "= X: " + this.mousePos.x + ", Y: " + this.mousePos.y);
     }
 
     getInitialMouseX(): number {
-        // TODO: return X value of a randomly selected spawnpoint on a randomly selected subway S
-        return 133;
+        return Math.floor(Math.random() * 100);
     }
 
     getInitialMouseY(): number {
-        // TODO: return Y value of that same randomly selected spawnpoint on that randomly selected subway S
-        return Math.random() * 792 + 360;; //1152 - 360 = 792
+        return Math.floor(Math.random() * 100);
     }
 
-    getGoalMouseX(): number {
-        // TODO: return X value of a randomly selected subway entry that contains the goal
-        return 613;
-    }
-
-    getGoalMouseY(): number {
-        // TODO: return Y value of a randomly selected subway entry that contains the goal
-        return 360; //1152 - 360 = 792
-    }
 
     calcStep(): Pos {
-        const deltaX = this.mousePos!.x! - this.goalPos!.x!;
+        /*const deltaX = this.mousePos!.x! - this.goalPos!.x!;
         const deltaY = this.mousePos!.y! - this.goalPos!.y!;
         const directPath = Math.sqrt(Math.pow(deltaX, 2) + Math.pow(deltaY, 2));
         if (this.mouseStepSize > directPath) {
@@ -63,7 +61,30 @@ export class MouseHelper {
         const stepX = deltaX / numberOfSteps;
         const stepY = deltaY / numberOfSteps;
 
-        return new Pos(this.mousePos!.x! - stepX, this.mousePos!.y! - stepY);
+        return new Pos(Math.floor(this.mousePos!.x! - stepX), Math.floor(this.mousePos!.y! - stepY));*/
+
+        const deltaX = this.mousePos!.x! - this.goalPos!.x!;
+        const deltaY = this.mousePos!.y! - this.goalPos!.y!;
+
+        if (deltaX > 0) {
+            if (deltaY > 0) {
+                return new Pos(this.mousePos!.x! - 1, this.mousePos!.y! - 1)
+            } else {
+                return new Pos(this.mousePos!.x! - 1, this.mousePos!.y! + 1)
+            }
+        } if (deltaX < 0) {
+            if (deltaY > 0) {
+                return new Pos(this.mousePos!.x! + 1, this.mousePos!.y! - 1)
+            } else {
+                return new Pos(this.mousePos!.x! + 1, this.mousePos!.y! + 1)
+            }
+        } else {
+            if (deltaY > 0) {
+                return new Pos(this.mousePos!.x!, this.mousePos!.y! - 1)
+            } else {
+                return new Pos(this.mousePos!.x!, this.mousePos!.y! + 1)
+            }
+        }
     }
 
     getNumberOfMice(): number {

@@ -12,7 +12,8 @@ const props = defineProps<{
 }>();
 
 const position = computed(() => {
-  return props.player.getComponent<PositionComponent>('pos');
+  let pos = props.player.getComponent<PositionComponent>('pos')
+  return document.getElementById(pos.x!.toString() + ' ' + pos.y!.toString())?.getBoundingClientRect();
 });
 
 // init vue use magic key listeners when controllable is true
@@ -84,9 +85,9 @@ if (props.controllable) {
 </script>
 
 <template>
-  <div class="absolute h-10 w-10 bg-pink-600" :style="{
-    top: `${position.y}px`,
-    left: `${position.x}px`
+  <div class="absolute h-5 w-5 bg-pink-600" :style="{
+    top: `${position!.top}px`,
+    left: `${position!.left}px`
   }">
   </div>
 </template>

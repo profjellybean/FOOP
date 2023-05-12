@@ -1,3 +1,5 @@
+import type { Entity } from "./index";
+
 export interface Component {
   compName: string;
   init(params: any): Object;
@@ -20,7 +22,7 @@ export class PositionComponent implements Component {
   x?: number;
   y?: number;
 
-  constructor (componentName: string) {
+  constructor(componentName: string) {
     this.compName = componentName;
   }
 
@@ -45,7 +47,7 @@ export class AliveComponent implements Component {
 }
 
 type FieldInfo = {
-  occupied: Component | null;
+  occupied: Entity | null;
   type: 'surface' | 'underground' | 'entry' | 'meeting';
 };
 
