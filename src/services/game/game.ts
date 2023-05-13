@@ -7,7 +7,6 @@ import { PeerServiceHook } from '../peer/types';
 import { ECS, Entity, type EntityMap } from "./ecs";
 import { AliveComponent, AppearanceComponent, MapComponent, PositionComponent } from "./ecs/components";
 import { MouseHelper } from "./ecs/pathfinding";
-import { _handleMove } from './handlers/move';
 import { GameStatus, type GameContext, type GameSettings } from './types';
 
 export class GameService {
@@ -35,6 +34,15 @@ export class GameService {
     this.peerService = peerService ?? inject("peerService") as PeerService;
     this.entitySystem = entitySystem ?? new ECS(this.numberOfMice);
     this.map.value.init();
+  }
+
+  updateOpponentPosition() {
+    for (let i = 1; i <= this.numberOfMice; i++) {
+      const mouse = this.entitySystem.getMouse(i.toString());
+      if (this.entitySystem.isAlive(mouse.id)) {
+        this.mouseHelper.updateMousePosition(mouse);
+      }
+    }
   }
 
   initMultiplayer() {
@@ -104,6 +112,10 @@ export class GameService {
           value: this.currentState.value
         })
       }
+    } else {
+      // if we are not in a multiplayer game we can just start the game
+      this.context.value.status = GameStatus.started;
+      this.gameLoopPlayer.resume();
     }
   }
 
@@ -157,7 +169,7 @@ export class GameService {
 
     switch (event) {
       case "move":
-        _handleMove(entity, payload);
+        this._handleMove(entity, payload);
         break;
     }
 
@@ -178,23 +190,45 @@ export class GameService {
     const pos = entity.getComponent<PositionComponent>("pos");
     switch (payload) {
       case "up":
-        pos.y = pos.y! - 10;
-        break;
-      case "down":
-        pos.y = pos.y! + 10;
-        break;
-      case "left":
-        pos.x = pos.x! - 10;
+        if (!this.checkBorder(pos.x!, pos.y! - 1)) {
+          break;
+        }
+        this.map.value.map![pos.x!][pos.y!].occupied = null;
+        pos.y = pos.y! - 1;
+        this.map.value.map![pos.x!][pos.y!].occupied = entity;
         break;
       case "right":
-        pos.x = pos.x! + 10;
+        if (!this.checkBorder(pos.x! + 1, pos.y!)) {
+          break;
+        }
+        this.map.value.map![pos.x!][pos.y!].occupied = null;
+        pos.x = pos.x! + 1;
+        this.map.value.map![pos.x!][pos.y!].occupied = entity;
+        break;
+      case "left":
+        if (!this.checkBorder(pos.x! - 1, pos.y!)) {
+          break;
+        }
+        this.map.value.map![pos.x!][pos.y!].occupied = null;
+        pos.x = pos.x! - 1;
+        this.map.value.map![pos.x!][pos.y!].occupied = entity;
+        break;
+      case "down":
+        if (!this.checkBorder(pos.x!, pos.y! + 1)) {
+          break;
+        }
+        this.map.value.map![pos.x!][pos.y!].occupied = null;
+        pos.y = pos.y! + 1;
+        this.map.value.map![pos.x!][pos.y!].occupied = entity;
         break;
       default:
         console.warn(`${this.logTag} Unknown direction ${payload}`);
     }
+    //checkCollision();
   }
 
   _gameLoop() {
+    this.updateOpponentPosition();
 
     // todo: send the game changed gameloop update to peers
     if (this._settings.multiplayer && this._settings.networked) {
