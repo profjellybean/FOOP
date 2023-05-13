@@ -1,9 +1,7 @@
-// import type { PeerService } from "../peer";
 import { useRafFn, useThrottleFn, type PromisifyFn } from '@vueuse/core';
 import { klona } from 'klona';
 import { inject, ref, type Ref } from "vue";
 import type { PeerService } from '../peer';
-import type { InitialSyncMessage, PeerContext, StartGameMessage } from '../peer/data_handlers/types';
 import { PeerServiceHook } from '../peer/types';
 import { ECS, Entity, type EntityMap } from "./ecs";
 import { AliveComponent, AppearanceComponent, MapComponent, PositionComponent } from "./ecs/components";
@@ -29,23 +27,13 @@ export class GameService {
 
   gameLoopPlayer = useRafFn(this._gameLoop.bind(this), { immediate: false });
 
-  // constructor(peerService: PeerService, entitySystem?: ECS) {
-  constructor(peerService?: PeerService, entitySystem?: ECS, settings?: GameSettings, numOfMice?: number) {
+  constructor(peerService?: PeerService, entitySystem?: ECS, settings?: GameSettings) {
     this._settings = settings ?? { multiplayer: false, networked: false };
     this.mouseHelper = new MouseHelper(this.map);
     this.numberOfMice = this.mouseHelper.getNumberOfMice();
     this.peerService = peerService ?? inject("peerService") as PeerService;
     this.entitySystem = entitySystem ?? new ECS(this.numberOfMice);
     this.map.value.init();
-  }
-
-  updateOpponentPosition() {
-    for (let i = 1; i <= this.numberOfMice; i++) {
-      const mouse = this.entitySystem.getMouse(i.toString());
-      if (this.entitySystem.isAlive(mouse.id)) {
-        this.mouseHelper.updateMousePosition(mouse);
-      }
-    }
   }
 
   initMultiplayer() {
@@ -60,6 +48,8 @@ export class GameService {
 
       this.context.value.gameId = this.peerService!.lobbySettings.value.lobbyId;
 
+      console.log(this.context.value.gameId, this.peerService!.peer.value!.id, this.peerService!.lobbySettings.value)
+      // console.log(settings.lobbyId, this.peerService!.peer.value!.id, this.context.value.gameId === this.peerService!.peer.value!.id)
       if (this.context.value.gameId === this.peerService!.peer.value!.id) {
         // user is host
         this.peerService!.dataHandler!.registerHandler("sync_ack", this._handleInitialSyncAck.bind(this));
@@ -90,7 +80,7 @@ export class GameService {
 
     if (this._settings.multiplayer && this._settings.networked) {
       this.peerService!.setHook(PeerServiceHook.PEER_CONNECTION, (connection) => {
-        if (this.context.value.status === GameStatus.started && !this.context.value.players![connection.peer]) {
+        if (this.context.value.started === GameStatus.started && !this.context.value.players![connection.peer]) {
           console.error(this.logTag + " Peer cannot connect to game, game is already running");
           // todo: maybe emitting an event would also help, haven't tested it yet
           // connection.emit("game_error", "Game is already running");
@@ -113,9 +103,6 @@ export class GameService {
           value: this.currentState.value
         })
       }
-
-      // after sending to peers make sure to await the acks from peers
-
     }
   }
 
@@ -127,8 +114,8 @@ export class GameService {
     }
 
     this.gameLoopPlayer.pause();
-    this.context.value.status = GameStatus.paused;
   }
+
 
   generatePlayers(players: string[] = []): EntityMap {
     const entities: EntityMap = {};
@@ -190,36 +177,16 @@ export class GameService {
     const pos = entity.getComponent<PositionComponent>("pos");
     switch (payload) {
       case "up":
-        if (!this.checkBorder(pos.x! - 1, pos.y!)) {
-          break;
-        }
-        this.map.value.map![pos.x!][pos.y!].occupied = null;
-        pos.x = pos.x! - 1;
-        this.map.value.map![pos.x!][pos.y!].occupied = entity;
-        break;
-      case "right":
-        if (!this.checkBorder(pos.x!, pos.y! + 1)) {
-          break;
-        }
-        this.map.value.map![pos.x!][pos.y!].occupied = null;
-        pos.y = pos.y! + 1;
-        this.map.value.map![pos.x!][pos.y!].occupied = entity;
-        break;
-      case "left":
-        if (!this.checkBorder(pos.x! - 1, pos.y! - 1)) {
-          break;
-        }
-        this.map.value.map![pos.x!][pos.y!].occupied = null;
-        pos.y = pos.y! - 1;
-        this.map.value.map![pos.x!][pos.y!].occupied = entity;
+        pos.y = pos.y! - 10;
         break;
       case "down":
-        if (!this.checkBorder(pos.x! + 1, pos.y!)) {
-          break;
-        }
-        this.map.value.map![pos.x!][pos.y!].occupied = null;
-        pos.x = pos.x! + 1;
-        this.map.value.map![pos.x!][pos.y!].occupied = entity;
+        pos.y = pos.y! + 10;
+        break;
+      case "left":
+        pos.x = pos.x! - 10;
+        break;
+      case "right":
+        pos.x = pos.x! + 10;
         break;
       default:
         console.warn(`${this.logTag} Unknown direction ${payload}`);
@@ -241,11 +208,6 @@ export class GameService {
     if (this.gameFinished === true) {
       return;
     }
-  }
-
-  _registerInGameHandlers() {
-    this.peerService!.dataHandler!.registerHandler("pause_game", this._handlePauseGame.bind(this));
-    this.peerService!.dataHandler!.registerHandler("update", this._handleUpdate.bind(this));
   }
 
   /**
@@ -311,9 +273,14 @@ export class GameService {
         value: this.context.value.gameId
       });
       this._registerInGameHandlers();
-      this.context.value.status = GameStatus.started;
+      this.context.value.started = GameStatus.started;
       this.gameLoopPlayer.resume();
     }
+  }
+
+  _registerInGameHandlers() {
+    this.peerService!.dataHandler!.registerHandler("pause_game", this._handlePauseGame.bind(this));
+    this.peerService!.dataHandler!.registerHandler("update", this._handleUpdate.bind(this));
   }
 
   /**
@@ -326,14 +293,14 @@ export class GameService {
     console.log(this.logTag + " Starting gaame");
 
     this._registerInGameHandlers();
-    this.context.value.status = GameStatus.started;
+    this.context.value.started = GameStatus.started;
     this.gameLoopPlayer.resume();
   }
 
   async _handlePauseGame(context: PeerContext, data: any) {
     console.log(this.logTag + " Pausing game");
 
-    this.context.value.status = GameStatus.paused;
+    this.context.value.started = GameStatus.paused;
     this.gameLoopPlayer.pause();
   }
 
