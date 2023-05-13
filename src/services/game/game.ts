@@ -2,6 +2,7 @@ import { useRafFn, useThrottleFn, type PromisifyFn } from '@vueuse/core';
 import { klona } from 'klona';
 import { inject, ref, type Ref } from "vue";
 import type { PeerService } from '../peer';
+import type { InitialSyncMessage, PeerContext, StartGameMessage } from '../peer/data_handlers/types';
 import { PeerServiceHook } from '../peer/types';
 import { ECS, Entity, type EntityMap } from "./ecs";
 import { AliveComponent, AppearanceComponent, MapComponent, PositionComponent } from "./ecs/components";
@@ -80,7 +81,7 @@ export class GameService {
 
     if (this._settings.multiplayer && this._settings.networked) {
       this.peerService!.setHook(PeerServiceHook.PEER_CONNECTION, (connection) => {
-        if (this.context.value.started === GameStatus.started && !this.context.value.players![connection.peer]) {
+        if (this.context.value.status === GameStatus.started && !this.context.value.players![connection.peer]) {
           console.error(this.logTag + " Peer cannot connect to game, game is already running");
           // todo: maybe emitting an event would also help, haven't tested it yet
           // connection.emit("game_error", "Game is already running");
@@ -273,7 +274,7 @@ export class GameService {
         value: this.context.value.gameId
       });
       this._registerInGameHandlers();
-      this.context.value.started = GameStatus.started;
+      this.context.value.status = GameStatus.started;
       this.gameLoopPlayer.resume();
     }
   }
@@ -293,14 +294,14 @@ export class GameService {
     console.log(this.logTag + " Starting gaame");
 
     this._registerInGameHandlers();
-    this.context.value.started = GameStatus.started;
+    this.context.value.status = GameStatus.started;
     this.gameLoopPlayer.resume();
   }
 
   async _handlePauseGame(context: PeerContext, data: any) {
     console.log(this.logTag + " Pausing game");
 
-    this.context.value.started = GameStatus.paused;
+    this.context.value.status = GameStatus.paused;
     this.gameLoopPlayer.pause();
   }
 
