@@ -5,10 +5,15 @@ jobs:
     runs-on: ubuntu-latest
     name: Build Vue
     steps:
-    - uses: actions/checkout@v2
-    - id: Build-Vue
-      uses: xRealNeon/VuePagesAction@1.0.1
+    - name: Checkout 🛎️
+      uses: actions/checkout@v2
+    - name: Install 🔧
+      run: npm run install
+    - name: Build application
+      run: npm run build
+    - name: Deploy to GH Pages 🚀
+      if: ${{ github.event_name != 'pull_request' }}
+      uses: peaceiris/actions-gh-pages@v3
       with:
-        username: 'profjellybean'
-        reponame: 'FOOP'
-        token: ${{ secrets.GITHUB_TOKEN }} # Leave this line unchanged
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: dist
