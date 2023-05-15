@@ -8,7 +8,7 @@ jobs:
     - name: Checkout 🛎️
       uses: actions/checkout@v2
     - name: Install 🔧
-      run: npm run install
+      run: npm install
     - name: Build application
       run: npm run build
     - name: Deploy to GH Pages 🚀
