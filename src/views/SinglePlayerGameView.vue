@@ -20,7 +20,7 @@ const mice = computed(() => state.value.opponents);
 
 <template>
   <div class="h-full w-full bg-sky-700 flex justify-center items-center">
-    <GameMap :map="gameService.map.value.map"></GameMap>
+    <GameMap :map-comp="gameService.map.value"></GameMap>
     <GamePlayer v-if="player !== undefined" :player="player" :game-service="gameService" controllable></GamePlayer>
     <ul>
       <GameOpponent v-for="mouse in mice" v-bind:key="mouse.id" :mouse="mouse"></GameOpponent>
