@@ -24,6 +24,7 @@ export class GameService {
   currentState: Ref<GameState> = ref({} as GameState);
   stateBuffer: GameState = {} as GameState;
   mouseHelper: MouseHelper;
+  counter = 0;
 
   // constructor(peerService: PeerService, entitySystem?: ECS) {
   constructor(peerService?: PeerService, entitySystem?: ECS, settings?: GameSettings, numOfMice?: number) {
@@ -176,7 +177,11 @@ export class GameService {
 
 
   _gameLoop() {
-    this.updateOpponentPosition();
+    this.counter++;
+    if (this.counter % 7 === 0) {
+      this.counter = 0;
+      this.updateOpponentPosition();
+    }
 
     // todo: send the game changed gameloop update to peers
     if (this._settings.multiplayer && this._settings.networked) {
