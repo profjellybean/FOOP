@@ -2,22 +2,22 @@
 import type { MapComponent } from '@/services/game/ecs/components';
 
 const props = defineProps<{
-    map: MapComponent;
+    mapComp: MapComponent;
 }>();
-
-
 </script>
 <template>
     <div>
         <table style="border: 2px solid black;">
             <thead></thead>
             <tbody>
-                <tr v-for="(row, index) in  props.map " :key="index">
-                    <td class="p-0" v-for="(row1, index1) in  row " :key="index1">
-                        <div :id="index + ' ' + index1" class="grid bg-black" v-if="row[index1].type == 'underground'" />
-                        <div :id="index + ' ' + index1" class="grid bg-white" v-if="row[index1].type == 'surface'" />
-                        <div :id="index + ' ' + index1" class="grid bg-red-500" v-if="row[index1].type == 'entry'" />
-                        <div :id="index + ' ' + index1" class="grid bg-yellow-500" v-if="row[index1].type == 'meeting'" />
+                <tr v-for="(row, index) in props.mapComp.map" :key="index">
+                    <td class="p-0" v-for="(cell, index1) in  row" :key="index1">
+                        <div :id="index + ' ' + index1" class="grid" :class="{
+                            'bg-black': cell.type == 'underground',
+                            'bg-white': cell.type == 'surface',
+                            'bg-red-500': cell.type == 'entry',
+                            'bg-yellow-500': cell.type == 'meeting'
+                        }" />
                     </td>
                 </tr>
             </tbody>
