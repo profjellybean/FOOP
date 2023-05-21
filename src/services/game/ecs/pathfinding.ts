@@ -22,7 +22,7 @@ export class MouseHelper {
             this.mousePos = new Pos(mouse.getComponent<PositionComponent>("pos").x, mouse.getComponent<PositionComponent>("pos").y);
             this.goalPos = new Pos(mouse.getComponent<PositionComponent>("goal").x, mouse.getComponent<PositionComponent>("goal").y);
 
-            const newPos = this.calcStep(this.map.value.map!);
+            const newPos = this.calcStep();
 
             this.map.value.map![this.mousePos!.x!][this.mousePos!.y!].occupied = null; // vorige Position freigeben
             this.map.value.map![newPos.x!][newPos.y!].occupied = mouse; // neue Position belegen
@@ -49,7 +49,7 @@ export class MouseHelper {
     }
 
 
-    calcStep(map: MapComponent): Pos {
+    calcStep(): Pos {
         /*const deltaX = this.mousePos!.x! - this.goalPos!.x!;
         const deltaY = this.mousePos!.y! - this.goalPos!.y!;
         const directPath = Math.sqrt(Math.pow(deltaX, 2) + Math.pow(deltaY, 2));

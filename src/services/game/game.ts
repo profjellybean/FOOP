@@ -166,40 +166,41 @@ export class GameService {
         console.warn(`${this.logTag} Unknown direction ${payload}`);
     }
     if (this.map.value.map![pos.x!][pos.y!].occupied != null) {
-      if (this.map.value.map![pos.x!][pos.y!].occupied!.getComponent<AppearanceComponent>("appearance").shape == "mouse") {
-        this.map.value.map![pos.x!][pos.y!].occupied!.getComponent<AliveComponent>("isAlive").isAlive = false;
-      }
+      //if (this.map.value.map![pos.x!][pos.y!].occupied!.getComponent<AppearanceComponent>("appearance").shape == "mouse") {
+      // this.map.value.map![pos.x!][pos.y!].occupied!.getComponent<AliveComponent>("isAlive").isAlive = false;
+      //}
       //checkCollision();
     }
-
-
-
-    _gameLoop() {
-      this.updateOpponentPosition();
-
-      // todo: send the game changed gameloop update to peers
-      if (this._settings.multiplayer && this._settings.networked) {
-        this.peerService!.send({
-          type: "update",
-          value: this.stateBuffer
-        });
-      }
-
-      this.entitySystem.update(this.stateBuffer.players);
-      this.entitySystem.update(this.stateBuffer.opponents);
-
-      this.stateBuffer = { ...this.currentState.value };
-
-      if (this.gameFinished === true) {
-        return;
-      }
-
-      window.requestAnimationFrame(this._gameLoop.bind(this));
-    }
   }
+
+
+
+  _gameLoop() {
+    this.updateOpponentPosition();
+
+    // todo: send the game changed gameloop update to peers
+    if (this._settings.multiplayer && this._settings.networked) {
+      this.peerService!.send({
+        type: "update",
+        value: this.stateBuffer
+      });
+    }
+
+    this.entitySystem.update(this.stateBuffer.players);
+    this.entitySystem.update(this.stateBuffer.opponents);
+
+    this.stateBuffer = { ...this.currentState.value };
+
+    if (this.gameFinished === true) {
+      return;
+    }
+
+    window.requestAnimationFrame(this._gameLoop.bind(this));
+  }
+}
 
 export type GameState = {
-    //entities: EntityMap,
-    players: EntityMap,
-    opponents: EntityMap
-  }
+  //entities: EntityMap,
+  players: EntityMap,
+  opponents: EntityMap
+}
