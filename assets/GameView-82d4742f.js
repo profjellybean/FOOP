@@ -1,1 +1,0 @@
-import{d as e,a,i as t,h as c}from"./index-c6f60e3a.js";const s=e({__name:"GameView",setup(r){return t("gameService")===void 0&&alert("GAME SERVICE IS NOT DEFINED"),(n,o)=>(c(),a("div"))}});export{s as default};
