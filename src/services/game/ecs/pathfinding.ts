@@ -22,10 +22,10 @@ export class MouseHelper {
             this.mousePos = new Pos(mouse.getComponent<PositionComponent>("pos").x, mouse.getComponent<PositionComponent>("pos").y);
             this.goalPos = new Pos(mouse.getComponent<PositionComponent>("goal").x, mouse.getComponent<PositionComponent>("goal").y);
 
-            const newPos = this.calcStep();
+            const newPos = this.calcStep(this.map.value.map!);
 
-            this.map.value.map![this.mousePos!.x!][this.mousePos!.y!].occupied = null;
-            this.map.value.map![newPos.x!][newPos.y!].occupied = mouse;
+            this.map.value.map![this.mousePos!.x!][this.mousePos!.y!].occupied = null; // vorige Position freigeben
+            this.map.value.map![newPos.x!][newPos.y!].occupied = mouse; // neue Position belegen
 
             if (newPos.x === this.goalPos.x && newPos.y === this.goalPos.y || this.mousePos!.x === this.goalPos!.x && this.mousePos!.y === this.goalPos!.y) {
                 mouse.getComponent<AliveComponent>("isAlive").isAlive = false;
@@ -49,7 +49,7 @@ export class MouseHelper {
     }
 
 
-    calcStep(): Pos {
+    calcStep(map: MapComponent): Pos {
         /*const deltaX = this.mousePos!.x! - this.goalPos!.x!;
         const deltaY = this.mousePos!.y! - this.goalPos!.y!;
         const directPath = Math.sqrt(Math.pow(deltaX, 2) + Math.pow(deltaY, 2));
@@ -62,6 +62,7 @@ export class MouseHelper {
         const stepY = deltaY / numberOfSteps;
 
         return new Pos(Math.floor(this.mousePos!.x! - stepX), Math.floor(this.mousePos!.y! - stepY));*/
+
 
         const deltaX = this.mousePos!.x! - this.goalPos!.x!;
         const deltaY = this.mousePos!.y! - this.goalPos!.y!;
