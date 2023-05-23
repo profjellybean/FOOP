@@ -124,7 +124,9 @@ onBeforeMount(async () => {
 });
 
 const startGame = () => {
-  gameService.startGame();
+  const players = gameService.peerService!.peerConnections.value.map((e) => e.peer);
+  players.push(connectionStore.peerId!);
+  gameService.startGame(players);
 }
 
 const pauseGame = () => {

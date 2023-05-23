@@ -1,5 +1,4 @@
 import type { AliveComponent, Component } from "./components";
-import { MouseHelper } from "./pathfinding";
 
 export type EntityMap = { [key: string]: Entity };
 
@@ -14,12 +13,12 @@ export class ECS {
     this.numberOfMice = numOfMice;
   }
 
-  getMouse(id: String): Entity {
-    return this._entities[`${id}`];
+  getMouse(id: string): Entity {
+    return this._entities[id];
   }
 
-  isAlive(id: String): boolean {
-    return this._entities[`${id}`].getComponent<AliveComponent>("isAlive").isAlive!;
+  isAlive(id: string): boolean {
+    return this._entities[id].getComponent<AliveComponent>("isAlive").isAlive!;
   }
 
   createEntity(preferredId?: string): Entity {
@@ -40,6 +39,7 @@ export class ECS {
   importEntities(ents: EntityMap): void {
     // todo: check if there are any colliding Entity IDs, if soo, what happens?
     this._entities = { ...this._entities, ...ents };
+    this._entityCount = Object.keys(this._entities).length;
   }
 
   update(entities: EntityMap) {

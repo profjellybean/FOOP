@@ -37,7 +37,7 @@ export class GameService {
   }
 
   updateOpponentPosition() {
-    for (let i = 1; i <= this.numberOfMice; i++) {
+    for (let i = 0; i < this.numberOfMice; i++) {
       const mouse = this.entitySystem.getMouse(i.toString());
       if (this.entitySystem.isAlive(mouse.id)) {
         this.mouseHelper.updateMousePosition(mouse);
@@ -66,26 +66,25 @@ export class GameService {
         this.peerService!.dataHandler!.registerHandler("initial_state_sync", this._handleInitialSync.bind(this));
       }
 
-      this._multiplayerUpdater = useThrottleFn(() => {
-        this.peerService!.send({
-          type: "update",
-          value: this.stateBuffer
-        });
-      }, 3000);
+      this._multiplayerUpdater = useThrottleFn(this._updatePeers, 3000);
+    }
+  }
+
+  _updatePeers() {
+    if ((this.stateBuffer.players !== undefined && Object.keys(this.stateBuffer.players).length > 0) ||
+      (this.stateBuffer.opponents !== undefined && Object.keys(this.stateBuffer.opponents).length > 0)) {
+      this.peerService!.send({
+        type: "update",
+        value: this.stateBuffer
+      });
     }
   }
 
   startGame(players?: string[]) {
     this.currentState.value = {
-      players: {
-        ...this.generatePlayers(players)
-      },
-      opponents: {
-        ...this.generateOpponents()
-      }
-    }
-
-    this.stateBuffer = { ...this.currentState.value };
+      players: this.generatePlayers(players),
+      opponents: this.generateOpponents()
+    };
 
     if (this._settings.multiplayer && this._settings.networked) {
       this.peerService!.setHook(PeerServiceHook.PEER_CONNECTION, (connection) => {
@@ -147,7 +146,7 @@ export class GameService {
   generateOpponents(): EntityMap {
     const entities: EntityMap = {};
     for (let i = 0; i < this.numberOfMice; ++i) {
-      const ent = this.entitySystem.createEntity();
+      const ent = this.entitySystem.createEntity(i.toString());
       ent.addComponent(new AppearanceComponent(), { shape: 'mouse' });
       ent.addComponent(new PositionComponent('pos'), { x: this.mouseHelper.getInitialMouseX(), y: this.mouseHelper.getInitialMouseY() });
       ent.addComponent(new PositionComponent('goal'), { x: 80, y: 0 });
@@ -161,6 +160,9 @@ export class GameService {
   }
 
   emit(entityId: string, event: string, payload?: any) {
+    if (this.stateBuffer.players[entityId] === undefined) {
+      this.stateBuffer.players[entityId] = this.currentState.value.players[entityId];
+    }
     const entity = klona(this.stateBuffer.players[entityId]);
     if (!entity) {
       console.warn(`${this.logTag} Entity with ID ${entityId} not found`);
@@ -238,9 +240,10 @@ export class GameService {
     this.entitySystem.update(this.stateBuffer.players);
     this.entitySystem.update(this.stateBuffer.opponents);
 
-    this.stateBuffer = { ...this.currentState.value };
+    this.stateBuffer = {} as GameState;
 
     if (this.gameFinished === true) {
+      this.gameLoopPlayer.pause();
       return;
     }
   }
