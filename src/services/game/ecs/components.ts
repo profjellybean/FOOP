@@ -1,4 +1,5 @@
 import type { Entity } from "./index";
+import type { SinglePosition } from "./pathfinding";
 
 export interface Component {
   compName: string;
@@ -31,6 +32,21 @@ export class PositionComponent implements Component {
       x: params.x ?? 0,
       y: params.y ?? 0
     }
+  }
+}
+
+export class PositionListComponent implements Component {
+  compName: string;
+  positions: SinglePosition[];
+
+  constructor(componentName: string) {
+    this.compName = componentName;
+    this.positions = [];
+  }
+
+  init(params: any): Object {
+    this.positions = params;
+    return this.positions;
   }
 }
 

@@ -1,5 +1,5 @@
 import type { Entity } from ".";
-import type { AliveComponent, PositionComponent } from "./components";
+import type { AliveComponent, PositionComponent, PositionListComponent } from "./components";
 import type { MapComponent } from "./components";
 import type { Ref } from "vue";
 
@@ -8,8 +8,9 @@ export class MouseHelper {
     private mouseWinCounter: number = 0;
     private map: Ref<MapComponent>;
 
-    private mousePos?: Pos;
-    private goalPos?: Pos;
+    private mousePos?: SinglePosition;
+    private mouseTargetList?: SinglePosition[];
+    private goalPos?: SinglePosition;
 
     constructor(map: Ref<MapComponent>) {
         this.map = map;
@@ -19,8 +20,11 @@ export class MouseHelper {
 
     async updateMousePosition(mouse: Entity): Promise<void> {
         return new Promise((resolve, reject) => {
-            this.mousePos = new Pos(mouse.getComponent<PositionComponent>("pos").x, mouse.getComponent<PositionComponent>("pos").y);
-            this.goalPos = new Pos(mouse.getComponent<PositionComponent>("goal").x, mouse.getComponent<PositionComponent>("goal").y);
+            this.mousePos = new SinglePosition(mouse.getComponent<PositionComponent>("pos").x, mouse.getComponent<PositionComponent>("pos").y);
+            this.mouseTargetList = mouse.getComponent<PositionListComponent>("targetList").positions;
+            this.goalPos = new SinglePosition(mouse.getComponent<PositionComponent>("goal").x, mouse.getComponent<PositionComponent>("goal").y);
+
+            console.log(this.mouseTargetList);
 
             const newPos = this.calcStep();
 
@@ -49,7 +53,7 @@ export class MouseHelper {
     }
 
 
-    calcStep(): Pos {
+    calcStep(): SinglePosition {
         /*const deltaX = this.mousePos!.x! - this.goalPos!.x!;
         const deltaY = this.mousePos!.y! - this.goalPos!.y!;
         const directPath = Math.sqrt(Math.pow(deltaX, 2) + Math.pow(deltaY, 2));
@@ -69,21 +73,21 @@ export class MouseHelper {
 
         if (deltaX > 0) {
             if (deltaY > 0) {
-                return new Pos(this.mousePos!.x! - 1, this.mousePos!.y! - 1)
+                return new SinglePosition(this.mousePos!.x! - 1, this.mousePos!.y! - 1)
             } else {
-                return new Pos(this.mousePos!.x! - 1, this.mousePos!.y! + 1)
+                return new SinglePosition(this.mousePos!.x! - 1, this.mousePos!.y! + 1)
             }
         } if (deltaX < 0) {
             if (deltaY > 0) {
-                return new Pos(this.mousePos!.x! + 1, this.mousePos!.y! - 1)
+                return new SinglePosition(this.mousePos!.x! + 1, this.mousePos!.y! - 1)
             } else {
-                return new Pos(this.mousePos!.x! + 1, this.mousePos!.y! + 1)
+                return new SinglePosition(this.mousePos!.x! + 1, this.mousePos!.y! + 1)
             }
         } else {
             if (deltaY > 0) {
-                return new Pos(this.mousePos!.x!, this.mousePos!.y! - 1)
+                return new SinglePosition(this.mousePos!.x!, this.mousePos!.y! - 1)
             } else {
-                return new Pos(this.mousePos!.x!, this.mousePos!.y! + 1)
+                return new SinglePosition(this.mousePos!.x!, this.mousePos!.y! + 1)
             }
         }
     }
@@ -97,7 +101,7 @@ export class MouseHelper {
     }
 }
 
-class Pos {
+export class SinglePosition {
     x?: number;
     y?: number;
 

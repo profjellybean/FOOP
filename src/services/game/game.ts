@@ -3,8 +3,8 @@ import { klona } from 'klona';
 import { ref, type Ref } from "vue";
 import type { PeerService } from '../peer';
 import { ECS, Entity, type EntityMap } from "./ecs";
-import { AppearanceComponent, PositionComponent, MapComponent, AliveComponent } from "./ecs/components";
-import { MouseHelper } from "./ecs/pathfinding";
+import { AppearanceComponent, PositionComponent, MapComponent, AliveComponent, PositionListComponent } from "./ecs/components";
+import { MouseHelper, SinglePosition } from "./ecs/pathfinding";
 
 export type GameSettings = {
   gameId: string;
@@ -93,6 +93,7 @@ export class GameService {
       ent.addComponent(new AppearanceComponent(), { shape: 'mouse' });
       ent.addComponent(new PositionComponent('pos'), { x: this.mouseHelper.getInitialMouseX(), y: this.mouseHelper.getInitialMouseY() });
       ent.addComponent(new PositionComponent('goal'), { x: 80, y: 0 });
+      ent.addComponent(new PositionListComponent('targetList'), this.generateMouseGoalList(PathStrategies.tourist)); // TODO: replace with getRandomPathStrategy
       ent.addComponent(new AliveComponent, { isAlive: true });
       // todo: add a collision component, to know when mice collide with cats
       // ent.addComponent(new CollisionComponent());
@@ -100,6 +101,26 @@ export class GameService {
       entities[ent.id] = ent;
     }
     return entities;
+  }
+
+  generateMouseGoalList(strategy: PathStrategies): SinglePosition[] {
+    const positionList = [];
+
+    switch(strategy) {
+        case PathStrategies.speedRunner:
+        case PathStrategies.chicken:
+          positionList.push(new SinglePosition(-1000, -2000));
+          break;
+        case PathStrategies.tourist:
+          positionList.push(new SinglePosition(-1, -2));
+          positionList.push(new SinglePosition(-2, -3));
+          positionList.push(new SinglePosition(-3, -4));
+          break;
+        default:
+          throw new Error('Pathstrategy not implemented!')
+    }
+
+    return positionList;
   }
 
   emit(entityId: string, event: string, payload?: any) {
@@ -174,8 +195,6 @@ export class GameService {
     }
   }
 
-
-
   _gameLoop() {
     this.counter++;
     if (this.counter % 7 === 0) {
@@ -208,4 +227,10 @@ export type GameState = {
   //entities: EntityMap,
   players: EntityMap,
   opponents: EntityMap
+}
+
+enum PathStrategies {
+  speedRunner,
+  chicken,
+  tourist
 }
