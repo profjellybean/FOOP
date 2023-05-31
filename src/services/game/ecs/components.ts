@@ -46,7 +46,9 @@ export class PositionListComponent implements Component {
 
   init(params: any): Object {
     this.positions = params;
-    return this.positions;
+    return {
+      positions: this.positions
+    };
   }
 }
 
