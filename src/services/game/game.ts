@@ -109,21 +109,21 @@ export class GameService {
     // final goal goes first
     positionList.push(new SinglePosition(80, 0)); // todo: each mouse gets a random valid goal
 
-    switch(strategy) {
-        case PathStrategies.speedRunner:
-          break;
-        case PathStrategies.chicken:
-          positionList.push(new SinglePosition(-1000, -2000));
-          break;
-        case PathStrategies.tourist:
+    switch (strategy) {
+      case PathStrategies.speedRunner:
+        break;
+      case PathStrategies.chicken:
+        positionList.push(new SinglePosition(-1000, -2000));
+        break;
+      case PathStrategies.tourist:
 
-          for(let i = 0; i < Math.round(Math.random() * 10); i++) {
-            positionList.push(new SinglePosition(Math.round(Math.random() * 100), Math.round(Math.random() * 100)));
-          }
-          
-          break;
-        default:
-          throw new Error('Pathstrategy not implemented!')
+        for (let i = 0; i < Math.floor(Math.random() * 10); i++) {
+          positionList.push(new SinglePosition(Math.floor(Math.random() * 100), Math.floor(Math.random() * 100)));
+        }
+
+        break;
+      default:
+        throw new Error('Pathstrategy not implemented!')
     }
 
     return positionList;
