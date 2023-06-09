@@ -1,22 +1,25 @@
 <script setup lang="ts">
+import type { ShallowRef } from 'vue';
 import type { MapComponent } from '@/services/game/ecs/components';
 
 const props = defineProps<{
-    mapComp: MapComponent;
+    mapComp: ShallowRef<MapComponent>;
 }>();
+
 </script>
 <template>
     <div>
         <table style="border: 2px solid black;">
             <thead></thead>
             <tbody>
-                <tr v-for="(row, index) in props.mapComp.map" :key="index">
+                <tr v-for="(row, index) in props.mapComp.value.map" :key="index">
                     <td class="p-0" v-for="(cell, index1) in  row" :key="index1">
                         <div :id="index + ' ' + index1" class="grid" :class="{
                             'bg-black': cell.type == 'underground',
                             'bg-white': cell.type == 'surface',
                             'bg-red-500': cell.type == 'entry',
-                            'bg-yellow-500': cell.type == 'meeting'
+                            'bg-yellow-500': cell.type == 'meeting',
+                            'ring-2 ring-red-500': cell.occupied !== null
                         }" />
                     </td>
                 </tr>

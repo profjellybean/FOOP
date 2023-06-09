@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { GameService } from '@/services/game/game';
-import { computed } from 'vue';
+import { computed, onBeforeUnmount } from 'vue';
 
 const gameService = new GameService();
 const playerId = "singleplayer"
@@ -13,6 +13,10 @@ const state = computed(() => {
   return gameService.currentState.value;
 });
 
+const map = computed(() => {
+  return gameService.map;
+});
+
 const player = computed(() => state.value.players && state.value.players[playerId]);
 const mice = computed(() => state.value.opponents);
 
@@ -20,8 +24,8 @@ const mice = computed(() => state.value.opponents);
 
 <template>
   <div class="h-full w-full bg-sky-700 flex justify-center items-center">
-    <GameMap :map-comp="gameService.map.value"></GameMap>
-    <GamePlayer v-if="player !== undefined" :player="player" :game-service="gameService" controllable></GamePlayer>
+  <GameMap :map-comp="map"></GameMap>
+  <GamePlayer v-if="player !== undefined" :player="player" :game-service="gameService" controllable></GamePlayer>
     <ul>
       <GameOpponent v-for="mouse in mice" v-bind:key="mouse.id" :mouse="mouse"></GameOpponent>
     </ul>

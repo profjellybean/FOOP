@@ -1,6 +1,6 @@
 // import type { PeerService } from "../peer";
 import { klona } from 'klona';
-import { ref, type Ref } from "vue";
+import { ref, shallowRef, type Ref, type ShallowRef, triggerRef } from "vue";
 import type { PeerService } from '../peer';
 import { ECS, Entity, type EntityMap } from "./ecs";
 import { AppearanceComponent, PositionComponent, MapComponent, AliveComponent, PositionListComponent } from "./ecs/components";
@@ -18,7 +18,7 @@ export class GameService {
   gameFinished: boolean = false;
   peerService?: PeerService;
   entitySystem: ECS;
-  map: Ref<MapComponent> = ref(new MapComponent());
+  map: ShallowRef<MapComponent> = shallowRef(new MapComponent());
   numberOfMice: number;
 
   currentState: Ref<GameState> = ref({} as GameState);
@@ -29,18 +29,18 @@ export class GameService {
   // constructor(peerService: PeerService, entitySystem?: ECS) {
   constructor(peerService?: PeerService, entitySystem?: ECS, settings?: GameSettings, numOfMice?: number) {
     this._settings = settings ?? { gameId: "game1", multiplayer: false, networked: false };
-    this.mouseHelper = new MouseHelper(this.map);
+    this.mouseHelper = new MouseHelper();
     this.numberOfMice = this.mouseHelper.getNumberOfMice();
     this.peerService = peerService;
     this.entitySystem = entitySystem ?? new ECS(this.numberOfMice);
     this.map.value.init();
   }
 
-  updateOpponentPosition() {
+  async updateOpponentPosition() {
     for (let i = 1; i <= this.numberOfMice; i++) {
       const mouse = this.entitySystem.getMouse(i.toString());
       if (this.entitySystem.isAlive(mouse.id)) {
-        this.mouseHelper.updateMousePosition(mouse);
+        await this.mouseHelper.updateMousePosition(mouse, this.map.value);
       }
     }
   }
@@ -201,12 +201,14 @@ export class GameService {
     }
   }
 
-  _gameLoop() {
+  async _gameLoop() {
     this.counter++;
     if (this.counter % 7 === 0) {
       this.counter = 0;
-      this.updateOpponentPosition();
+      await this.updateOpponentPosition();
     }
+
+    triggerRef(this.map);
 
     // todo: send the game changed gameloop update to peers
     if (this._settings.multiplayer && this._settings.networked) {

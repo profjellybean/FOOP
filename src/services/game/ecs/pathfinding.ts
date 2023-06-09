@@ -1,22 +1,17 @@
+import type { Ref } from "vue";
 import type { Entity } from ".";
 import type { AliveComponent, PositionComponent, PositionListComponent } from "./components";
 import type { MapComponent } from "./components";
-import type { Ref } from "vue";
 
 export class MouseHelper {
     private numberOfMice: number = 25;
     private mouseWinCounter: number = 0;
-    private map: Ref<MapComponent>;
 
     private mousePos?: SinglePosition;
     private mouseTargetList?: SinglePosition[];
     private goalPos?: SinglePosition;
 
-    constructor(map: Ref<MapComponent>) {
-        this.map = map;
-    }
-
-    async updateMousePosition(mouse: Entity): Promise<void> {
+    async updateMousePosition(mouse: Entity, map: MapComponent): Promise<void> {
         return new Promise((resolve, reject) => {
             this.mousePos = new SinglePosition(mouse.getComponent<PositionComponent>("pos").x, mouse.getComponent<PositionComponent>("pos").y);
             this.mouseTargetList = mouse.getComponent<PositionListComponent>("targetList").positions;
@@ -24,8 +19,8 @@ export class MouseHelper {
 
             const newPos = this.calcStep();
 
-            this.map.value.map![this.mousePos!.x!][this.mousePos!.y!].occupied = null; // vorige Position freigeben
-            this.map.value.map![newPos.x!][newPos.y!].occupied! = mouse; // neue Position belegen
+            map.map![this.mousePos!.x!][this.mousePos!.y!].occupied = null; // vorige Position freigeben
+            map.map![newPos.x!][newPos.y!].occupied! = mouse; // neue Position belegen
 
             if (newPos.x === this.goalPos?.x && newPos.y === this.goalPos?.y || this.mousePos?.x === this.goalPos?.x && this.mousePos?.y === this.goalPos?.y) {
                 if (this.mouseTargetList.length === 0) {
