@@ -1,6 +1,6 @@
 // import type { PeerService } from "../peer";
 import { klona } from 'klona';
-import { ref, shallowRef, type Ref, type ShallowRef, triggerRef } from "vue";
+import { reactive, ref, shallowRef, type Ref, type ShallowRef, triggerRef } from "vue";
 import type { PeerService } from '../peer';
 import { ECS, Entity, type EntityMap } from "./ecs";
 import { AppearanceComponent, PositionComponent, MapComponent, AliveComponent, PositionListComponent } from "./ecs/components";
@@ -25,7 +25,7 @@ export class GameService {
   stateBuffer: GameState = {} as GameState;
   mouseHelper: MouseHelper;
   counter = 0;
-  killCount = 0;
+  killCount = reactive({ kills: 0 });;
 
   // constructor(peerService: PeerService, entitySystem?: ECS) {
   constructor(peerService?: PeerService, entitySystem?: ECS, settings?: GameSettings, numOfMice?: number) {
@@ -228,7 +228,7 @@ export class GameService {
       if (this.map.value.map![x][y].occupied != null && this.map.value.map![x][y].type != 'underground') {
         const i = this.map.value.map![x][y].occupied?.id;
         const mouse = this.entitySystem.getMouse(i!.toString())
-        this.killCount += this.mouseHelper.killMouse(mouse);
+        this.killCount.kills += this.mouseHelper.killMouse(mouse);
       }
     }
   }
