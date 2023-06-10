@@ -25,6 +25,7 @@ export class GameService {
   stateBuffer: GameState = {} as GameState;
   mouseHelper: MouseHelper;
   counter = 0;
+  killCount = 0;
 
   // constructor(peerService: PeerService, entitySystem?: ECS) {
   constructor(peerService?: PeerService, entitySystem?: ECS, settings?: GameSettings, numOfMice?: number) {
@@ -164,6 +165,7 @@ export class GameService {
         }
         this.map.value.map![pos.x!][pos.y!].occupied = null; // vorige Position freigeben
         pos.x = pos.x! - 1;
+        this.checkCollision(pos.x!, pos.y!);
         this.map.value.map![pos.x!][pos.y!].occupied = entity; // neue Position belegen
         break;
       case "right":
@@ -172,6 +174,7 @@ export class GameService {
         }
         this.map.value.map![pos.x!][pos.y!].occupied = null;
         pos.y = pos.y! + 1;
+        this.checkCollision(pos.x!, pos.y!);
         this.map.value.map![pos.x!][pos.y!].occupied = entity;
         break;
       case "left":
@@ -180,6 +183,7 @@ export class GameService {
         }
         this.map.value.map![pos.x!][pos.y!].occupied = null;
         pos.y = pos.y! - 1;
+        this.checkCollision(pos.x!, pos.y!);
         this.map.value.map![pos.x!][pos.y!].occupied = entity;
         break;
       case "down":
@@ -188,16 +192,44 @@ export class GameService {
         }
         this.map.value.map![pos.x!][pos.y!].occupied = null;
         pos.x = pos.x! + 1;
+        this.checkCollision(pos.x!, pos.y!);
         this.map.value.map![pos.x!][pos.y!].occupied = entity;
         break;
       default:
         console.warn(`${this.logTag} Unknown direction ${payload}`);
     }
-    if (this.map.value.map![pos.x!][pos.y!].occupied != null) {
-      //if (this.map.value.map![pos.x!][pos.y!].occupied!.getComponent<AppearanceComponent>("appearance").shape == "mouse") {
-      // this.map.value.map![pos.x!][pos.y!].occupied!.getComponent<AliveComponent>("isAlive").isAlive = false;
-      //}
-      //checkCollision();
+
+  }
+
+  checkCollision(x: number, y: number) { //cat too small, only 1x1
+    this.killChecker(x, y);
+    //ugly code but it works:
+    x = x - 1; //check left -1 0
+    this.killChecker(x, y);
+    x = x + 2; //check right 1 0
+    this.killChecker(x, y);
+    x = x - 1; //check down 0 -1
+    y = y - 1;
+    this.killChecker(x, y);
+    y = y + 2; //check up 0 1
+    this.killChecker(x, y);
+    x = x + 1; // check right upper corner 1 1
+    this.killChecker(x, y);
+    y = y - 2; // check right lower corner 1 -1
+    this.killChecker(x, y);
+    x = x - 2; // check left lower corner -1 -1
+    this.killChecker(x, y);
+    y = y + 2; // check left upper corner -1 1
+    this.killChecker(x, y);
+  }
+
+  killChecker(x: number, y: number) {
+    if (y >= 0 && y < 100 && x >= 0 && x < 100) {
+      if (this.map.value.map![x][y].occupied != null && this.map.value.map![x][y].type != 'underground') {
+        const i = this.map.value.map![x][y].occupied?.id;
+        const mouse = this.entitySystem.getMouse(i!.toString())
+        this.killCount += this.mouseHelper.killMouse(mouse);
+      }
     }
   }
 

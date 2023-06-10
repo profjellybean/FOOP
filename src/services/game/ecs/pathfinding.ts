@@ -54,13 +54,13 @@ export class MouseHelper {
             const deltaX = this.mousePos!.x! - this.goalPos!.x!;
             const deltaY = this.mousePos!.y! - this.goalPos!.y!;
 
-            if (deltaX > 0) {
+            if (deltaX > 0 && deltaY != 0) {
                 if (deltaY > 0) {
                     return new SinglePosition(this.mousePos!.x! - 1, this.mousePos!.y! - 1)
                 } else {
                     return new SinglePosition(this.mousePos!.x! - 1, this.mousePos!.y! + 1)
                 }
-            } if (deltaX < 0) {
+            } if (deltaX < 0 && deltaY != 0) {
                 if (deltaY > 0) {
                     return new SinglePosition(this.mousePos!.x! + 1, this.mousePos!.y! - 1)
                 } else {
@@ -79,7 +79,7 @@ export class MouseHelper {
 
     getCurrentGoalPosition(): SinglePosition {
         if (this.mouseTargetList !== undefined && this.mouseTargetList.length !== undefined && this.mouseTargetList.length > 0) {
-            return this.mouseTargetList[this.mouseTargetList.length-1];
+            return this.mouseTargetList[this.mouseTargetList.length - 1];
         } else {
             return this.goalPos!;
         }
@@ -91,6 +91,19 @@ export class MouseHelper {
 
     getMouseWinCounter(): number {
         return this.mouseWinCounter;
+    }
+
+    killMouse(mouse: Entity): number {
+        if (this.numberOfMice > 0) {
+            if (mouse.components.isAlive !== false) {
+                this.numberOfMice--;
+                mouse.components.isAlive = false;
+                console.log(mouse)
+                console.log(this.numberOfMice)
+                return 1;
+            }
+        }
+        return 0;
     }
 }
 

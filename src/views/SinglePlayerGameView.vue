@@ -4,6 +4,7 @@ import { computed, onBeforeUnmount } from 'vue';
 
 const gameService = new GameService();
 const playerId = "singleplayer"
+const killCount = gameService.killCount;
 
 setTimeout(() => {
   gameService.startGame([playerId]);
@@ -24,8 +25,9 @@ const mice = computed(() => state.value.opponents);
 
 <template>
   <div class="h-full w-full bg-sky-700 flex justify-center items-center">
-  <GameMap :map-comp="map"></GameMap>
-  <GamePlayer v-if="player !== undefined" :player="player" :game-service="gameService" controllable></GamePlayer>
+    <h1>{{ killCount }}</h1>
+    <GameMap :map-comp="map"></GameMap>
+    <GamePlayer v-if="player !== undefined" :player="player" :game-service="gameService" controllable></GamePlayer>
     <ul>
       <GameOpponent v-for="mouse in mice" v-bind:key="mouse.id" :mouse="mouse"></GameOpponent>
     </ul>
