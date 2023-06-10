@@ -19,7 +19,6 @@ const props = defineProps<{
                             'bg-white': cell.type == 'surface',
                             'bg-red-500': cell.type == 'entry',
                             'bg-yellow-500': cell.type == 'meeting',
-                            'ring-2 ring-red-500': cell.occupied !== null
                         }" />
                     </td>
                 </tr>

@@ -93,8 +93,8 @@ export class GameService {
       const ent = this.entitySystem.createEntity();
       ent.addComponent(new AppearanceComponent(), { shape: 'mouse' });
       ent.addComponent(new PositionComponent('pos'), { x: this.mouseHelper.getInitialMouseX(), y: this.mouseHelper.getInitialMouseY() });
-      ent.addComponent(new PositionComponent('goal'), { x: 80, y: 0 });
-      ent.addComponent(new PositionListComponent('targetList'), this.generateMouseGoalList(PathStrategies.tourist)); // TODO: replace with getRandomPathStrategy
+      ent.addComponent(new PositionComponent('goal'), { x: 85, y: 10 });
+      ent.addComponent(new PositionListComponent('targetList'), this.generateMouseGoalList()); // getRandomPathStrategy
       ent.addComponent(new AliveComponent, { isAlive: true });
       // todo: add a collision component, to know when mice collide with cats
       // ent.addComponent(new CollisionComponent());
@@ -104,27 +104,27 @@ export class GameService {
     return entities;
   }
 
-  generateMouseGoalList(strategy: PathStrategies): SinglePosition[] {
+  randomIntFromInterval(min: number, max: number) { // min and max included 
+    return Math.floor(Math.random() * (max - min + 1) + min)
+  }
+
+
+  generateMouseGoalList(): SinglePosition[] {
     const positionList = [];
-
     // final goal goes first
-    positionList.push(new SinglePosition(80, 0)); // todo: each mouse gets a random valid goal
-
-    switch (strategy) {
-      case PathStrategies.speedRunner:
-        break;
-      case PathStrategies.chicken:
-        positionList.push(new SinglePosition(-1000, -2000));
-        break;
-      case PathStrategies.tourist:
-
-        for (let i = 0; i < Math.floor(Math.random() * 10); i++) {
-          positionList.push(new SinglePosition(Math.floor(Math.random() * 100), Math.floor(Math.random() * 100)));
-        }
-
-        break;
-      default:
-        throw new Error('Pathstrategy not implemented!')
+    positionList.push(new SinglePosition(this.randomIntFromInterval(0, 99), this.randomIntFromInterval(0, 99))); // each mouse gets a random valid goal
+    const random = this.randomIntFromInterval(1, 3);
+    if (random == 1) {
+      //PathStrategies.speedRunner
+    } else if (random == 2) {
+      //PathStrategies.chicken
+      positionList.push(new SinglePosition(85, 10)); //TODO: implement?
+    }
+    else if (random == 3) {
+      //PathStrategies.tourist
+      for (let i = 0; i < Math.floor(Math.random() * 10); i++) {
+        positionList.push(new SinglePosition(Math.floor(Math.random() * 100), Math.floor(Math.random() * 100)));
+      }
     }
 
     return positionList;

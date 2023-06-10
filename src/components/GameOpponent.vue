@@ -8,6 +8,9 @@ const props = defineProps<{
 }>();
 
 const position = computed(() => {
+  if (props.mouse.components.isAlive === false) {
+    return null
+  }
   let pos = props.mouse.getComponent<PositionComponent>('pos')
   return document.getElementById(pos.x!.toString() + ' ' + pos.y!.toString())?.getBoundingClientRect();
 });
@@ -15,7 +18,9 @@ const position = computed(() => {
 </script>
 
 <template>
-  <div class="absolute h-2 w-2 bg-blue-400" :style="{
+  <div v-if="position === null">
+  </div>
+  <div v-else class="absolute h-2 w-2 bg-blue-400" :style="{
     top: `${position!.top}px`,
     left: `${position!.left}px`
   }">
