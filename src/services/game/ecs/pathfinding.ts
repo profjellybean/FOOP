@@ -1,4 +1,3 @@
-import type { Ref } from "vue";
 import type { Entity } from ".";
 import type { AliveComponent, PositionComponent, PositionListComponent } from "./components";
 import type { MapComponent } from "./components";

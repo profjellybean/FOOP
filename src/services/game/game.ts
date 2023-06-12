@@ -26,6 +26,7 @@ export class GameService {
   mouseHelper: MouseHelper;
   counter = 0;
   killCount = reactive({ kills: 0 });;
+  winCount = reactive({ wins: 0 });;
 
   // constructor(peerService: PeerService, entitySystem?: ECS) {
   constructor(peerService?: PeerService, entitySystem?: ECS, settings?: GameSettings, numOfMice?: number) {
@@ -93,7 +94,6 @@ export class GameService {
       const ent = this.entitySystem.createEntity();
       ent.addComponent(new AppearanceComponent(), { shape: 'mouse' });
       ent.addComponent(new PositionComponent('pos'), { x: this.mouseHelper.getInitialMouseX(), y: this.mouseHelper.getInitialMouseY() });
-      ent.addComponent(new PositionComponent('goal'), { x: 85, y: 10 });
       ent.addComponent(new PositionListComponent('targetList'), this.generateMouseGoalList()); // getRandomPathStrategy
       ent.addComponent(new AliveComponent, { isAlive: true });
       // todo: add a collision component, to know when mice collide with cats
@@ -111,6 +111,7 @@ export class GameService {
 
   generateMouseGoalList(): SinglePosition[] {
     const positionList = [];
+    positionList.push(new SinglePosition(85, 10));
     // final goal goes first
     positionList.push(new SinglePosition(this.randomIntFromInterval(0, 99), this.randomIntFromInterval(0, 99))); // each mouse gets a random valid goal
     const random = this.randomIntFromInterval(1, 3);
@@ -122,11 +123,14 @@ export class GameService {
     }
     else if (random == 3) {
       //PathStrategies.tourist
-      for (let i = 0; i < Math.floor(Math.random() * 10); i++) {
-        positionList.push(new SinglePosition(Math.floor(Math.random() * 100), Math.floor(Math.random() * 100)));
-      }
-    }
+      positionList.push(new SinglePosition(60, 30));
+      positionList.push(new SinglePosition(60, 10));
+      positionList.push(new SinglePosition(40, 20));
+      positionList.push(new SinglePosition(40, 90));
+      positionList.push(new SinglePosition(20, 80));
+      positionList.push(new SinglePosition(20, 10));
 
+    }
     return positionList;
   }
 
@@ -225,10 +229,12 @@ export class GameService {
 
   killChecker(x: number, y: number) {
     if (y >= 0 && y < 100 && x >= 0 && x < 100) {
-      if (this.map.value.map![x][y].occupied != null && this.map.value.map![x][y].type != 'underground') {
-        const i = this.map.value.map![x][y].occupied?.id;
-        const mouse = this.entitySystem.getMouse(i!.toString())
-        this.killCount.kills += this.mouseHelper.killMouse(mouse);
+      if (this.map.value.map![x][y].occupied != null && this.map.value.map![x][y].type != "underground") {
+        if (this.map.value.map![x][y].occupied?.getComponent<AppearanceComponent>("ap").shape == "mouse" && this.map.value.map![x][y].occupied?.getComponent<AliveComponent>("isAlive").isAlive != false) {
+          const i = this.map.value.map![x][y].occupied?.id; //TODO: check if it is mouse and 
+          const mouse = this.entitySystem.getMouse(i!.toString())
+          this.killCount.kills += this.mouseHelper.killMouse(mouse);
+        }
       }
     }
   }
@@ -238,6 +244,7 @@ export class GameService {
     if (this.counter % 7 === 0) {
       this.counter = 0;
       await this.updateOpponentPosition();
+      this.winCount.wins = this.mouseHelper.getMouseWinCounter();
     }
 
     triggerRef(this.map);

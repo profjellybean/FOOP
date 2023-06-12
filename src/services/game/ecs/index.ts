@@ -1,5 +1,4 @@
 import type { AliveComponent, Component } from "./components";
-import { MouseHelper } from "./pathfinding";
 
 export type EntityMap = { [key: string]: Entity };
 
