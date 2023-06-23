@@ -1,47 +1,68 @@
 import type { Entity } from "./index";
 
 export interface Component {
-  compName: string;
-  init(params: any): Object;
+  id: string;
+  init(params: any): Component;
 }
 
+export const mapComponentFromJson = (json: any): Component => {
+  let comp: Component;
+  switch (json.id) {
+    case 'map':
+      comp = new MapComponent();
+      break;
+    case 'pos':
+    case 'goal':
+      comp = new PositionComponent(json.id);
+      break;
+    case 'ap':
+      comp = new AppearanceComponent();
+      break;
+    case 'isAlive':
+      comp = new AliveComponent();
+      break;
+    default:
+      throw new Error(`Unknown component type ${json.id}`);
+  }
+
+  comp.init(json);
+
+  return comp;
+};
+
 export class AppearanceComponent implements Component {
-  compName: string = "ap";
+  id: string = "ap";
   shape?: string;
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  init(params: any): Object {
-    return {
-      shape: params.shape ?? 'mouse', //could be 'cat' as well
-    }
+  init(params: any): Component {
+    this.shape = params.shape ?? 'mouse'; //could be 'cat' as well
+    return this;
   }
 }
 
 export class PositionComponent implements Component {
-  compName: string; //could be 'pos' or 'goal' or 'tempDest' // TODO: should this be an enum?
+  id: string; //could be 'pos' or 'goal' or 'tempDest' // TODO: should this be an enum?
   x?: number;
   y?: number;
 
   constructor(componentName: string) {
-    this.compName = componentName;
+    this.id = componentName;
   }
 
-  init(params: any): Object {
-    return {
-      x: params.x ?? 0,
-      y: params.y ?? 0
-    }
+  init(params: any): Component {
+    this.x = params.x ?? 0;
+    this.y = params.y ?? 0;
+    return this;
   }
 }
 
 export class AliveComponent implements Component {
-  compName: string = "isAlive";
+  id: string = "isAlive";
   isAlive?: boolean;
 
-  init(params: any): Object {
-    return {
-      isAlive: params ?? false
-    }
+  init(params: any): Component {
+    this.isAlive = params ?? false;
+    return this;
   }
 
 }
@@ -52,10 +73,10 @@ type FieldInfo = {
 };
 
 export class MapComponent implements Component {
-  compName: string = "map";
+  id: string = "map";
   map?: FieldInfo[][];
 
-  init(params?: any): Object {
+  init(params?: any): Component {
     this.map = Array(100);
     for (let i = 0; i < 100; i++) {
       this.map[i] = new Array(100);
@@ -105,6 +126,6 @@ export class MapComponent implements Component {
       occupied: null,
       type: 'entry'
     }
-    return this.map;
+    return this;
   }
 }

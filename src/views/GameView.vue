@@ -1,16 +1,30 @@
 <script setup lang="ts">
-import type { GameService } from '@/services/game/game';
-import { inject } from 'vue';
+import { useGameService } from '@/composables/game';
+import { usePeerConnectionStore } from '@/stores/peerConnection';
+import { computed } from 'vue';
 
-const gameService = inject('gameService') as GameService;
+let { gameService } = useGameService({
+  networked: true,
+  multiplayer: true
+});
 
-if (gameService === undefined) {
-  alert("GAME SERVICE IS NOT DEFINED")
-}
+const connectionStore = usePeerConnectionStore();
+
+const player = computed(() => (gameService.currentState.value.players && gameService.currentState.value.players[connectionStore.peerId!]) || null);
+const otherPlayers = computed(() => gameService.currentState.value.players && Object.values(gameService.currentState.value.players).filter((p) => p.id !== connectionStore.peerId));
+const mice = computed(() => gameService.currentState.value.opponents);
 </script>
 
 <template>
-  <div></div>
+  <div class="h-full w-full bg-sky-700 flex justify-start items-center flex-wrap">
+    <GameMap :map="gameService!.map.map"></GameMap>
+    <GamePlayer v-if="player !== null" :player="player" :game-service="gameService" controllable></GamePlayer>
+    <GamePlayer v-for="player in otherPlayers" :key="player.id" :player="player" :game-service="gameService">
+    </GamePlayer>
+    <template v-for="(mouse, i) in mice" :key="i">
+      <GameOpponent :mouse="mouse" />
+    </template>
+  </div>
 </template>
 
 <style></style>

@@ -1,17 +1,12 @@
 import type { Entity } from ".";
-import type { AliveComponent, PositionComponent } from "./components";
-import type { MapComponent } from "./components";
-import type { Ref } from "vue";
+import type { AliveComponent, MapComponent, PositionComponent } from "./components";
 
 export class MouseHelper {
     private numberOfMice: number = 25;
     private mouseWinCounter: number = 0;
-    private map: Ref<MapComponent>;
+    private map: MapComponent;
 
-    private mousePos?: Pos;
-    private goalPos?: Pos;
-
-    constructor(map: Ref<MapComponent>) {
+    constructor(map: MapComponent) {
         this.map = map;
     }
 
@@ -19,15 +14,15 @@ export class MouseHelper {
 
     async updateMousePosition(mouse: Entity): Promise<void> {
         return new Promise((resolve, reject) => {
-            this.mousePos = new Pos(mouse.getComponent<PositionComponent>("pos").x, mouse.getComponent<PositionComponent>("pos").y);
-            this.goalPos = new Pos(mouse.getComponent<PositionComponent>("goal").x, mouse.getComponent<PositionComponent>("goal").y);
+            const mousePos = Pos.fromComponent(mouse.getComponent<PositionComponent>("pos"));
+            const goalPos = Pos.fromComponent(mouse.getComponent<PositionComponent>("goal"));
 
-            const newPos = this.calcStep();
+            const newPos = this.calcStep(mousePos, goalPos);
 
-            this.map.value.map![this.mousePos!.x!][this.mousePos!.y!].occupied = null;
-            this.map.value.map![newPos.x!][newPos.y!].occupied = mouse;
+            this.map.map![mousePos!.x!][mousePos!.y!].occupied = null;
+            this.map.map![newPos.x!][newPos.y!].occupied = mouse;
 
-            if (newPos.x === this.goalPos.x && newPos.y === this.goalPos.y || this.mousePos!.x === this.goalPos!.x && this.mousePos!.y === this.goalPos!.y) {
+            if (newPos.x === goalPos.x && newPos.y === goalPos.y || mousePos!.x === goalPos!.x && mousePos!.y === goalPos!.y) {
                 mouse.getComponent<AliveComponent>("isAlive").isAlive = false;
                 this.mouseWinCounter++;
                 resolve();
@@ -49,7 +44,7 @@ export class MouseHelper {
     }
 
 
-    calcStep(): Pos {
+    calcStep(mousePos: Pos, goalPos: Pos): Pos {
         /*const deltaX = this.mousePos!.x! - this.goalPos!.x!;
         const deltaY = this.mousePos!.y! - this.goalPos!.y!;
         const directPath = Math.sqrt(Math.pow(deltaX, 2) + Math.pow(deltaY, 2));
@@ -63,26 +58,26 @@ export class MouseHelper {
 
         return new Pos(Math.floor(this.mousePos!.x! - stepX), Math.floor(this.mousePos!.y! - stepY));*/
 
-        const deltaX = this.mousePos!.x! - this.goalPos!.x!;
-        const deltaY = this.mousePos!.y! - this.goalPos!.y!;
+        const deltaX = mousePos!.x! - goalPos!.x!;
+        const deltaY = mousePos!.y! - goalPos!.y!;
 
         if (deltaX > 0) {
             if (deltaY > 0) {
-                return new Pos(this.mousePos!.x! - 1, this.mousePos!.y! - 1)
+                return new Pos(mousePos!.x! - 1, mousePos!.y! - 1)
             } else {
-                return new Pos(this.mousePos!.x! - 1, this.mousePos!.y! + 1)
+                return new Pos(mousePos!.x! - 1, mousePos!.y! + 1)
             }
         } if (deltaX < 0) {
             if (deltaY > 0) {
-                return new Pos(this.mousePos!.x! + 1, this.mousePos!.y! - 1)
+                return new Pos(mousePos!.x! + 1, mousePos!.y! - 1)
             } else {
-                return new Pos(this.mousePos!.x! + 1, this.mousePos!.y! + 1)
+                return new Pos(mousePos!.x! + 1, mousePos!.y! + 1)
             }
         } else {
             if (deltaY > 0) {
-                return new Pos(this.mousePos!.x!, this.mousePos!.y! - 1)
+                return new Pos(mousePos!.x!, mousePos!.y! - 1)
             } else {
-                return new Pos(this.mousePos!.x!, this.mousePos!.y! + 1)
+                return new Pos(mousePos!.x!, mousePos!.y! + 1)
             }
         }
     }
@@ -103,5 +98,9 @@ class Pos {
     constructor(xVal?: number, yVal?: number) {
         this.x = xVal;
         this.y = yVal;
+    }
+
+    static fromComponent(comp: PositionComponent): Pos {
+        return new Pos(comp.x, comp.y);
     }
 }

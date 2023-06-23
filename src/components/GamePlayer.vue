@@ -11,6 +11,8 @@ const props = defineProps<{
   gameService: GameService;
 }>();
 
+// const player = toRef(props, 'player');
+
 const position = computed(() => {
   const pos = props.player.getComponent<PositionComponent>('pos')
   return document.getElementById(pos.y!.toString() + ' ' + pos.x!.toString())?.getBoundingClientRect();
@@ -67,8 +69,8 @@ if (props.controllable) {
 
 <template>
   <div class="absolute h-5 w-5 bg-pink-600" :style="{
-    top: `${position!.y}px`,
-    left: `${position!.x}px`
+    top: `${position?.y ?? '0'}px`,
+    left: `${position?.x ?? '0'}px`
   }">
   </div>
 </template>

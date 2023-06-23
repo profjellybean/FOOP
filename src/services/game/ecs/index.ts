@@ -1,4 +1,4 @@
-import type { AliveComponent, Component } from "./components";
+import { mapComponentFromJson, type AliveComponent, type Component } from "./components";
 
 export type EntityMap = { [key: string]: Entity };
 
@@ -36,27 +36,41 @@ export class ECS {
     return entity;
   }
 
-  importEntities(ents: EntityMap): void {
-    // todo: check if there are any colliding Entity IDs, if soo, what happens?
-    this._entities = { ...this._entities, ...ents };
-    this._entityCount = Object.keys(this._entities).length;
-  }
+  importEntities(ents: EntityMap): EntityMap {
+    const imported: EntityMap = {};
+    for (const entId in ents) {
+      if (this._entities[entId]) {
+        console.error(`Entity with ID ${entId} already exists; I assume that this entity is the same, won't import...`);
+      }
 
-  update(entities: EntityMap) {
-    this.importEntities(entities);
+      this._entities[entId] = imported[entId] = Entity.fromJson(ents[entId]);
+    }
+    this._entityCount = Object.keys(this._entities).length;
+
+    return imported;
   }
 }
 
+type ComponentMap = { [key: string]: Component };
+
 export class Entity {
   id: string;
-  components: { [name: string]: Object } = {};
+  components: ComponentMap = {};
 
   constructor(id: string) {
     this.id = id;
   }
 
+  static fromJson(json: Entity): Entity {
+    const entity = new Entity(json.id);
+    for (const compId in json.components) {
+      entity.components[compId] = mapComponentFromJson(json.components[compId]);
+    }
+    return entity;
+  }
+
   addComponent(component: Component, params?: any) {
-    this.components[component.compName] = component.init(params)
+    this.components[component.id] = component.init(params)
   };
 
   getComponent<T>(componentKey: string): T {

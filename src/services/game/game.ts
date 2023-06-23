@@ -1,6 +1,9 @@
+import { usePeerService } from '@/composables/peer';
+import router from '@/router';
 import { useRafFn, useThrottleFn, type PromisifyFn } from '@vueuse/core';
 import { klona } from 'klona';
-import { inject, ref, type Ref } from "vue";
+import { ref, triggerRef, watch, type Ref } from "vue";
+import type { Router } from 'vue-router';
 import type { PeerService } from '../peer';
 import type { InitialSyncMessage, PeerContext, StartGameMessage } from '../peer/data_handlers/types';
 import { PeerServiceHook } from '../peer/types';
@@ -12,42 +15,53 @@ import { GameStatus, type GameContext, type GameSettings } from './types';
 export class GameService {
   logTag = "[GameService]";
   _settings: GameSettings;
-  context: Ref<GameContext> = ref({} as GameContext);
+  context: GameContext = {} as GameContext;
   gameFinished: boolean = false;
   peerService?: PeerService;
   entitySystem: ECS;
-  map: Ref<MapComponent> = ref(new MapComponent());
+  map: MapComponent = new MapComponent();
   numberOfMice: number;
 
   currentState: Ref<GameState> = ref({} as GameState);
   stateBuffer: GameState = {} as GameState;
   mouseHelper: MouseHelper;
+  _router?: Router;
 
   _multiplayerUpdater?: PromisifyFn<() => void>;
 
   gameLoopPlayer = useRafFn(this._gameLoop.bind(this), { immediate: false });
 
-  constructor(peerService?: PeerService, entitySystem?: ECS, settings?: GameSettings) {
+  constructor(entitySystem?: ECS, settings?: GameSettings) {
     this._settings = settings ?? { multiplayer: false, networked: false };
     this.mouseHelper = new MouseHelper(this.map);
     this.numberOfMice = this.mouseHelper.getNumberOfMice();
-    this.peerService = peerService ?? inject("peerService") as PeerService;
     this.entitySystem = entitySystem ?? new ECS(this.numberOfMice);
-    this.map.value.init();
+    this.map.init();
+
+    window.addEventListener("pagehide", () => {
+      this.gameLoopPlayer.pause();
+    });
+
+    watch(this.currentState, (newVal) => {
+      console.log("new state", newVal);
+    });
   }
 
-  updateOpponentPosition() {
+  async updateOpponentPosition() {
     for (let i = 0; i < this.numberOfMice; i++) {
-      const mouse = this.entitySystem.getMouse(i.toString());
+      const mouse = this.currentState.value.opponents[i.toString()];
       if (this.entitySystem.isAlive(mouse.id)) {
-        this.mouseHelper.updateMousePosition(mouse);
+        await this.mouseHelper.updateMousePosition(mouse);
       }
     }
   }
 
   initMultiplayer() {
+    const { peerService } = usePeerService();
+    this.peerService = peerService.value;
+
     if (this._settings.multiplayer && this._settings.networked) {
-      if (this.peerService!.lobbySettings.value.lobbyId === null) {
+      if (this.peerService!.lobbySettings.lobbyId === null) {
         throw new Error(this.logTag + " Cannot start game without lobbyId");
       }
 
@@ -55,29 +69,37 @@ export class GameService {
         return;
       }
 
-      this.context.value.gameId = this.peerService!.lobbySettings.value.lobbyId;
+      this.context.gameId = this.peerService!.lobbySettings.lobbyId;
 
-      console.log(this.context.value.gameId, this.peerService!.peer.value!.id, this.peerService!.lobbySettings.value)
+      console.log("pre sync state", this.currentState.value);
       // console.log(settings.lobbyId, this.peerService!.peer.value!.id, this.context.value.gameId === this.peerService!.peer.value!.id)
-      if (this.context.value.gameId === this.peerService!.peer.value!.id) {
+      if (this.context.gameId === this.peerService!.peer!.id) {
         // user is host
         this.peerService!.dataHandler!.registerHandler("sync_ack", this._handleInitialSyncAck.bind(this));
       } else {
         this.peerService!.dataHandler!.registerHandler("initial_state_sync", this._handleInitialSync.bind(this));
       }
 
-      this._multiplayerUpdater = useThrottleFn(this._updatePeers, 3000);
+      this._router = router;
+
+      this._multiplayerUpdater = useThrottleFn(this._updatePeers, 30);
     }
   }
 
+  /**
+   * Send an update event to all registered peers.
+   * Note: Currently only the position of the own player will be sent, solving two issues:
+   *   - Saves bandwidth
+   *   - Prevents state collision, when eg. peers send different positions for one player
+   * @returns void
+   */
   _updatePeers() {
-    if ((this.stateBuffer.players !== undefined && Object.keys(this.stateBuffer.players).length > 0) ||
-      (this.stateBuffer.opponents !== undefined && Object.keys(this.stateBuffer.opponents).length > 0)) {
-      this.peerService!.send({
-        type: "update",
-        value: this.stateBuffer
-      });
-    }
+    this.peerService!.send({
+      type: "update",
+      value: {
+        players: { [this.peerService!.peer!.id]: this.stateBuffer.players[this.peerService!.peer!.id] }
+      }
+    });
   }
 
   startGame(players?: string[]) {
@@ -88,7 +110,7 @@ export class GameService {
 
     if (this._settings.multiplayer && this._settings.networked) {
       this.peerService!.setHook(PeerServiceHook.PEER_CONNECTION, (connection) => {
-        if (this.context.value.status === GameStatus.started && !this.context.value.players![connection.peer]) {
+        if (this.context.status === GameStatus.started && !this.context.players![connection.peer]) {
           console.error(this.logTag + " Peer cannot connect to game, game is already running");
           // todo: maybe emitting an event would also help, haven't tested it yet
           // connection.emit("game_error", "Game is already running");
@@ -100,10 +122,10 @@ export class GameService {
       });
 
 
-      if (this.peerService?.peer.value) {
+      if (this.peerService?.peer) {
         // set the players for the current game and set their ready state to false, 
         // will be set to true after they ack'ed the initial sync
-        this.context.value.players = this.peerService!.peerConnections.value.map((conn) => (
+        this.context.players = this.peerService!.peerConnections.map((conn) => (
           { [conn.peer]: { id: conn.peer, ready: false } })).reduce((acc, curr) => ({ ...acc, ...curr }), {});
         // send start game event through the peerService
         this.peerService!.send({
@@ -113,7 +135,7 @@ export class GameService {
       }
     } else {
       // if we are not in a multiplayer game we can just start the game
-      this.context.value.status = GameStatus.started;
+      this.context.status = GameStatus.started;
       this.gameLoopPlayer.resume();
     }
   }
@@ -159,11 +181,23 @@ export class GameService {
     return entities;
   }
 
-  emit(entityId: string, event: string, payload?: any) {
-    if (this.stateBuffer.players[entityId] === undefined) {
-      this.stateBuffer.players[entityId] = this.currentState.value.players[entityId];
+  /**
+   * This method emits an event to the state buffer, which will later be flushed when syncing
+   * @param entityId ID of the player entity
+   * @param event the type of event that should be emitted
+   * @param payload 
+   * @returns void
+   */
+  async emit(entityId: string, event: string, payload?: any) {
+    // console.log("emiting event", entityId, event, payload);
+    if (this.stateBuffer.players === undefined) {
+      this.stateBuffer.players = {};
     }
-    const entity = klona(this.stateBuffer.players[entityId]);
+
+    if (this.stateBuffer.players[entityId] === undefined) {
+      this.stateBuffer.players[entityId] = klona(this.currentState.value.players[entityId]);
+    }
+    const entity = this.stateBuffer.players[entityId];
     if (!entity) {
       console.warn(`${this.logTag} Entity with ID ${entityId} not found`);
       return;
@@ -179,10 +213,10 @@ export class GameService {
   }
 
   checkBorder(x: number, y: number) {
-    if (this.map.value.map![x] == undefined) {
+    if (this.map.map![x] == undefined) {
       return false;
     }
-    if (this.map.value.map![x][y] == undefined) {
+    if (this.map.map![x][y] == undefined) {
       return false;
     }
     return true;
@@ -195,33 +229,33 @@ export class GameService {
         if (!this.checkBorder(pos.x!, pos.y! - 1)) {
           break;
         }
-        this.map.value.map![pos.x!][pos.y!].occupied = null;
+        this.map.map![pos.x!][pos.y!].occupied = null;
         pos.y = pos.y! - 1;
-        this.map.value.map![pos.x!][pos.y!].occupied = entity;
+        this.map.map![pos.x!][pos.y!].occupied = entity;
         break;
       case "right":
         if (!this.checkBorder(pos.x! + 1, pos.y!)) {
           break;
         }
-        this.map.value.map![pos.x!][pos.y!].occupied = null;
+        this.map.map![pos.x!][pos.y!].occupied = null;
         pos.x = pos.x! + 1;
-        this.map.value.map![pos.x!][pos.y!].occupied = entity;
+        this.map.map![pos.x!][pos.y!].occupied = entity;
         break;
       case "left":
         if (!this.checkBorder(pos.x! - 1, pos.y!)) {
           break;
         }
-        this.map.value.map![pos.x!][pos.y!].occupied = null;
+        this.map.map![pos.x!][pos.y!].occupied = null;
         pos.x = pos.x! - 1;
-        this.map.value.map![pos.x!][pos.y!].occupied = entity;
+        this.map.map![pos.x!][pos.y!].occupied = entity;
         break;
       case "down":
         if (!this.checkBorder(pos.x!, pos.y! + 1)) {
           break;
         }
-        this.map.value.map![pos.x!][pos.y!].occupied = null;
+        this.map.map![pos.x!][pos.y!].occupied = null;
         pos.y = pos.y! + 1;
-        this.map.value.map![pos.x!][pos.y!].occupied = entity;
+        this.map.map![pos.x!][pos.y!].occupied = entity;
         break;
       default:
         console.warn(`${this.logTag} Unknown direction ${payload}`);
@@ -229,18 +263,27 @@ export class GameService {
     //checkCollision();
   }
 
-  _gameLoop() {
-    this.updateOpponentPosition();
+  async _gameLoop() {
+    await this.updateOpponentPosition();
 
-    // todo: send the game changed gameloop update to peers
-    if (this._settings.multiplayer && this._settings.networked) {
-      this._multiplayerUpdater!();
+    if ((this.stateBuffer.players !== undefined && Object.keys(this.stateBuffer.players).length > 0)) {
+      if (this._settings.multiplayer && this._settings.networked && this.stateBuffer.players[this.peerService!.peer!.id] !== undefined) {
+        // this currently updates only the current users position
+        this._multiplayerUpdater!();
+      }
+
+      console.log("updating current state with state buffer");
+      this._updateEntityMap(this.currentState.value.players, this.stateBuffer.players);
+
+      // this.entitySystem.update(this.stateBuffer.players);
     }
 
-    this.entitySystem.update(this.stateBuffer.players);
-    this.entitySystem.update(this.stateBuffer.opponents);
+    this.stateBuffer = {
+      players: {},
+      opponents: {}
+    };
 
-    this.stateBuffer = {} as GameState;
+    triggerRef(this.currentState);
 
     if (this.gameFinished === true) {
       this.gameLoopPlayer.pause();
@@ -257,15 +300,22 @@ export class GameService {
    */
   async _handleInitialSync(context: PeerContext, data: InitialSyncMessage) {
     console.log(this.logTag + " handling initial sync");
-    this.currentState.value = data.value;
+    const players = this.entitySystem.importEntities(data.value.players);
+    const opponents = this.entitySystem.importEntities(data.value.opponents);
 
-    // state is theoretically synced
+    this.currentState.value = {
+      players,
+      opponents
+    };
 
-    const host = context.peerService.peerConnections.value.filter((conn) => conn.peer === context.peerService.lobbySettings.value.lobbyId)[0];
+    const host = context.peerService.peerConnections.filter((conn) => conn.peer === context.peerService.lobbySettings.lobbyId)[0];
 
     if (!host) {
       console.error(this.logTag + " Cannot find host connection");
     }
+
+    this.context.status = GameStatus.started;
+    await this._router!.push({ name: "multiplayer_game", params: { gameId: this.context.gameId } });
 
     console.log(this.logTag + " sending sync ack to host");
 
@@ -275,6 +325,8 @@ export class GameService {
 
     this.peerService!.dataHandler!.removeHandler("initial_state_sync");
     this.peerService!.dataHandler!.registerHandler("start_game", this._handleStartGame.bind(this));
+
+    console.log("initial sync post state", this.currentState.value);
   }
 
   /**
@@ -290,12 +342,12 @@ export class GameService {
     // if so, send the `start_game` event to the peers
     console.log(this.logTag + " handle sync_ack data");
 
-    if (!this.context.value.players) {
+    if (!this.context.players) {
       console.log(this.logTag + " got handleSyncAck but no players");
       return;
     }
 
-    const player = this.context.value.players[context.senderId];
+    const player = this.context.players[context.senderId];
     if (!player) {
 
       console.warn(this.logTag + " Got initial handle async from peer id: " + context.senderId + " but no player was found in context");
@@ -304,15 +356,18 @@ export class GameService {
 
     player.ready = true;
 
-    if (Object.values(this.context.value.players!).every((player) => player.ready === true)) {
+    if (Object.values(this.context.players!).every((player) => player.ready === true)) {
+      this.context.status = GameStatus.started;
+      await this._router!.push({ name: "multiplayer_game", params: { gameId: this.context.gameId } });
       // send start game event
       this.peerService!.send({
         type: "start_game",
-        value: this.context.value.gameId
+        value: this.context.gameId
       });
       this._registerInGameHandlers();
-      this.context.value.status = GameStatus.started;
       this.gameLoopPlayer.resume();
+
+      console.log("initial sync post state", this.currentState.value);
     }
   }
 
@@ -331,19 +386,40 @@ export class GameService {
     console.log(this.logTag + " Starting gaame");
 
     this._registerInGameHandlers();
-    this.context.value.status = GameStatus.started;
+    // this.context.value.status = GameStatus.started;
     this.gameLoopPlayer.resume();
   }
 
   async _handlePauseGame(context: PeerContext, data: any) {
     console.log(this.logTag + " Pausing game");
 
-    this.context.value.status = GameStatus.paused;
+    this.context.status = GameStatus.paused;
     this.gameLoopPlayer.pause();
   }
 
-  async _handleUpdate(context: PeerContext, data: any) {
-    console.log("handling update", data);
+  async _handleUpdate(context: PeerContext, data: { type: "update", value: GameState }) {
+    console.log(this.logTag + " Updating game");
+    // an update contains new players positions and we should update them directly in our current state
+    // at the moment the mice won't be updated
+    const updatePlayers = data.value.players;
+
+    this._updateEntityMap(this.stateBuffer.players, updatePlayers, true);
+  }
+
+  _updateEntityMap(ents: EntityMap, updated: EntityMap, createMode: boolean = false) {
+    // console.log("updating entity map", updated);
+    const ids = Object.keys(updated);
+    for (let i = 0; i < ids.length; ++i) {
+      if (!ents[ids[i]]) {
+        if (!createMode) {
+          console.warn(`${this.logTag} Entity with ID ${ids[i]} not found`);
+          continue;
+        }
+        ents[ids[i]] = Entity.fromJson(updated[ids[i]]);
+      }
+
+      ents[ids[i]].components = updated[ids[i]].components;
+    }
   }
 }
 

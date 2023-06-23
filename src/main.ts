@@ -5,7 +5,7 @@ import App from './App.vue'
 import router from './router'
 
 import './assets/main.css'
-import { PeerService } from './services/peer'
+import { usePeerService } from './composables/peer'
 
 const app = createApp(App)
 
@@ -14,10 +14,8 @@ app.use(router)
 
 app.mount('#app')
 
-const peerService = new PeerService();
-
-app.provide('peerService', peerService)
+const { peerService } = usePeerService();
 
 window.addEventListener('pagehide', () => {
-  peerService.destroy()
+  peerService.value.destroy()
 })

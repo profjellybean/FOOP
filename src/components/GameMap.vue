@@ -8,26 +8,22 @@ const props = defineProps<{
 
 </script>
 <template>
-    <div>
-        <table style="border: 2px solid black;">
-            <thead></thead>
-            <tbody>
-                <tr v-for="(row, index) in  props.map " :key="index">
-                    <td class="p-0" v-for="(row1, index1) in  row " :key="index1">
-                        <div :id="index + ' ' + index1" class="grid bg-black" v-if="row[index1].type == 'underground'" />
-                        <div :id="index + ' ' + index1" class="grid bg-white" v-if="row[index1].type == 'surface'" />
-                        <div :id="index + ' ' + index1" class="grid bg-red-500" v-if="row[index1].type == 'entry'" />
-                        <div :id="index + ' ' + index1" class="grid bg-yellow-500" v-if="row[index1].type == 'meeting'" />
-                    </td>
-                </tr>
-            </tbody>
-        </table>
+    <div class="h-full w-full grid-flow-row auto-cols-fr">
+        <div v-for="(row, index) in  props.map " :key="index" class="w-full flex justify-center items-stretch">
+            <div class="grid p-0" v-for="(row1, index1) in  row " :key="index1" :id="index + ' ' + index1" :class="{
+                'bg-black': row[index1].type == 'underground',
+                'bg-white': row[index1].type == 'surface',
+                'bg-red-500': row[index1].type == 'entry',
+                'bg-yellow-500': row[index1].type == 'meeting'
+            }">
+            </div>
+        </div>
     </div>
 </template>
 
 <style>
 .grid {
-    @apply h-2 w-2;
+    @apply h-[1dvh] w-[1dvh];
 }
 </style>
   

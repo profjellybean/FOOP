@@ -4,22 +4,26 @@ import type { PositionComponent } from '@/services/game/ecs/components';
 import { computed } from 'vue';
 
 const props = defineProps<{
-  mouse: Entity;
+  mouse: Entity,
 }>();
 
+let pos = computed(() => props.mouse && props.mouse.getComponent<PositionComponent>('pos'));
+
 const position = computed(() => {
-  let pos = props.mouse.getComponent<PositionComponent>('pos')
-  return document.getElementById(pos.x!.toString() + ' ' + pos.y!.toString())?.getBoundingClientRect();
+  let rect = document.getElementById(pos.value?.x!.toString() + ' ' + pos.value?.y!.toString())?.getBoundingClientRect();
+  return rect ?? {
+    x: 30,
+    y: 30,
+  };
 });
 
 </script>
 
 <template>
-  <div class="absolute h-2 w-2 bg-blue-400" :style="{
-    top: `${position!.top}px`,
-    left: `${position!.left}px`
-  }">
-  </div>
+  <div class="absolute h-2 w-2 bg-green-600" :style="{
+    top: `${position.y}px`,
+    left: `${position.x}px`
+  }"> </div>
 </template>
 
 <style></style>

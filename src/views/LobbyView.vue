@@ -1,28 +1,28 @@
 <script setup lang="ts">
 import PeerItem from '@/components/PeerItem.vue';
+import { useGameService } from '@/composables/game';
+import { usePeerService } from '@/composables/peer';
 import router from '@/router';
-import { GameService } from '@/services/game/game';
 import { GameStatus } from '@/services/game/types';
-import { PeerService } from '@/services/peer';
 import { usePeerConnectionStore } from '@/stores/peerConnection';
 import { PeerConnectionState } from '@/types';
-import { computed, inject, onBeforeMount, provide, ref, watch } from 'vue';
+import { computed, onBeforeMount, ref } from 'vue';
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute } from 'vue-router';
 
 const logTag = "[LobbyView]";
 
 const connectionStore = usePeerConnectionStore();
 
-let peerService = inject('peerService') as PeerService;
+let { peerService } = usePeerService();
 
 const showPauseButton = ref(false);
 
-const gameService = new GameService(peerService, undefined, {
+const gameStore = useGameService({
   networked: true,
   multiplayer: true
 });
 
-provide('gameService', gameService);
+const gameService = gameStore.gameService;
 
 const lobbyId = computed(() => {
   const route = useRoute();
@@ -36,18 +36,6 @@ const yourGame = computed(() => {
   return lobbyId.value === connectionStore.peerId;
 });
 
-watch(pageState, (value) => {
-  if (value === 3 && yourGame.value === true) {
-    gameService.initMultiplayer();
-  }
-});
-
-watch(gameService.context, (value) => {
-  if (value.status == GameStatus.started) {
-    showPauseButton.value = true;
-  }
-}, { deep: true })
-
 const connections = computed(() => {
   return Object.keys(connectionStore.peerConnectionStates);
 });
@@ -56,8 +44,8 @@ const connectToLobby = async (lobbyId?: string) => {
   pageState.value = 2;
   console.log(`${logTag} Connecting to lobby ${lobbyId}`);
   try {
-    await peerService.connectToPeer(lobbyId as string, true);
-    gameService.initMultiplayer();
+    await peerService.value.connectToPeer(lobbyId as string, true);
+    gameService!.initMultiplayer();
   } catch (e) {
     console.error(`${logTag} Could not connect to lobby ${lobbyId}`);
     console.error(e);
@@ -77,7 +65,7 @@ const initialisePeer = async (peerId: string | null, isHost: boolean) => {
   try {
     pageState.value = 1;
     console.log(logTag + ` Initializing self with ${isHost ? 'id ' + peerId : 'new id'}`);
-    await peerService.initSelf(peerId ?? undefined, isHost);
+    await peerService.value.initSelf(peerId ?? undefined, isHost);
     pageState.value = 2;
   } catch (e) {
     console.error(`${logTag} Initialization new id failed;`);
@@ -88,13 +76,12 @@ const _beforeRenderHooks = async () => {
   if (peerService === undefined) {
     // if there is no peer service we - for now - just instantiate one 
     // to prevent users from not being able to communicate with peers from here on
-    peerService = new PeerService();
-    provide('peerService', peerService);
+    peerService = usePeerService().peerService;
   }
 
   await initialisePeer(connectionStore.peerId, yourGame.value);
 
-  if (peerService.peerConnections.value.filter((e) => e.provider.id === lobbyId.value).length == 0 && lobbyId.value !== connectionStore.peerId) {
+  if (peerService.value.peerConnections.filter((e) => e.provider.id === lobbyId.value).length == 0 && lobbyId.value !== connectionStore.peerId) {
     await connectToLobby(lobbyId.value as string);
   } else {
     // the user is the host of the lobby
@@ -110,10 +97,13 @@ onBeforeRouteUpdate(async (to, from, next) => {
 });
 
 onBeforeRouteLeave(() => {
+  if (gameService?.context.status === GameStatus.started) {
+    return true;
+  }
   const leave = confirm("waaaait you will be removed from the lobby if you leave!");
 
   if (leave) {
-    peerService.destroy();
+    peerService.value.destroy();
   }
 
   return leave;
@@ -124,13 +114,14 @@ onBeforeMount(async () => {
 });
 
 const startGame = () => {
-  const players = gameService.peerService!.peerConnections.value.map((e) => e.peer);
+  gameService.initMultiplayer();
+  const players = gameService!.peerService!.peerConnections.map((e) => e.peer);
   players.push(connectionStore.peerId!);
-  gameService.startGame(players);
+  gameService!.startGame(players);
 }
 
 const pauseGame = () => {
-  gameService.pauseGame();
+  gameService!.pauseGame();
 }
 
 const leaveLobby = async () => {
