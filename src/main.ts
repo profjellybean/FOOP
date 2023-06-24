@@ -5,7 +5,7 @@ import App from './App.vue'
 import router from './router'
 
 import './assets/main.css'
-import { PeerService } from './services/peer'
+import { usePeerService } from './composables/peer'
 
 import { OhVueIcon, addIcons } from "oh-vue-icons";
 import { FaCat, GiSeatedMouse } from "oh-vue-icons/icons";
@@ -20,10 +20,8 @@ app.use(router)
 
 app.mount('#app')
 
-const peerService = new PeerService();
-
-app.provide('peerService', peerService)
+const { peerService } = usePeerService();
 
 window.addEventListener('pagehide', () => {
-  peerService.destroy()
+  peerService.value.destroy()
 })

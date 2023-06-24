@@ -7,13 +7,15 @@ import { computed, ref, watch } from 'vue';
 
 const props = defineProps<{
   player: Entity;
-  controllable: boolean;
+  controllable?: boolean;
   gameService: GameService;
 }>();
 
+// const player = toRef(props, 'player');
+
 const position = computed(() => {
-  let pos = props.player.getComponent<PositionComponent>('pos')
-  return document.getElementById(pos.x!.toString() + ' ' + pos.y!.toString())?.getBoundingClientRect();
+  const pos = props.player.getComponent<PositionComponent>('pos')
+  return document.getElementById(pos.y!.toString() + ' ' + pos.x!.toString())?.getBoundingClientRect();
 });
 
 // init vue use magic key listeners when controllable is true
@@ -61,33 +63,14 @@ if (props.controllable) {
       moveUp.pause();
     }
   });
-  // whenever(arrowdown, () => mover('down'));
-  // whenever(arrowright, () => mover('right'));
-  // whenever(arrowup, () => mover('up'));
-
-  // whenever(arrowleft, () => {
-  //   props.gameService.emit(props.player.id, 'move', 'left');
-  // });
-
-  // whenever(arrowdown, () => {
-  //   props.gameService.emit(props.player.id, 'move', 'down');
-  // });
-
-  // whenever(arrowright, () => {
-  //   props.gameService.emit(props.player.id, 'move', 'right');
-  // });
-
-  // whenever(arrowup, () => {
-  //   props.gameService.emit(props.player.id, 'move', 'up');
-  // });
 }
 
 </script>
 
 <template>
   <div class="absolute h-6 w-6" :style="{
-    top: `${position!.top}px`,
-    left: `${position!.left}px`
+    top: `${position!.y ?? '0'}px`,
+    left: `${position!.x ?? '0'}px`
   }"><v-icon name="fa-cat" scale="2"></v-icon>
 
   </div>

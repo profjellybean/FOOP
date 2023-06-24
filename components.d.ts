@@ -12,6 +12,7 @@ declare module '@vue/runtime-core' {
     GameMap: typeof import('./src/components/GameMap.vue')['default']
     GameOpponent: typeof import('./src/components/GameOpponent.vue')['default']
     GamePlayer: typeof import('./src/components/GamePlayer.vue')['default']
+    PeerItem: typeof import('./src/components/PeerItem.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
   }

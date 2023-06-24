@@ -1,10 +1,12 @@
 <script setup lang="ts">
+import { usePeerService } from '@/composables/peer';
 import router from '@/router';
-import type { PeerService } from '@/services/peer';
+import { usePeerConnectionStore } from '@/stores/peerConnection';
 import { useClipboard } from '@vueuse/core';
-import { inject, ref } from 'vue';
+import { ref } from 'vue';
 
-const peerService: PeerService | undefined = inject('peerService');
+const connectionStore = usePeerConnectionStore();
+const { peerService } = usePeerService();
 
 const { copy } = useClipboard()
 
@@ -19,8 +21,8 @@ const parseLobbyId = (lobbyId: string) => {
   return lobbyId
 }
 
-const initPeer = async () => {
-  const res = await peerService!.initSelf();
+const initPeer = async (isHost = false) => {
+  const res = await peerService.value.initSelf(undefined, isHost);
 
   if (!res) {
     console.error("could not init peer service correctly, cannot create game");
@@ -31,11 +33,11 @@ const initPeer = async () => {
 const createGame = async () => {
   if (peerService === undefined) return
 
-  await initPeer()
+  await initPeer(true)
 
-  copy(window.location.protocol + '//' + window.location.host + "/lobby/" + peerService.peerId.value);
+  copy(window.location.protocol + '//' + window.location.host + "/lobby/" + connectionStore.peerId);
 
-  router.push(`/lobby/${peerService.peerId.value}`);
+  router.push(`/lobby/${connectionStore.peerId}`);
 }
 
 const startSingleGame = async () => {
@@ -52,7 +54,7 @@ const connectToLobby = async () => {
 
   const peerId = parseLobbyId(lobbyId.value.value)
 
-  const connected = peerService.connectToPeer(peerId)
+  const connected = await peerService.value.connectToPeer(peerId)
 
   if (connected) {
     router.push(`/lobby/${peerId}`);
@@ -87,6 +89,6 @@ const connectToLobby = async () => {
 
 <style>
 .ui-card {
-  @apply bg-white shadow-md rounded-lg p-8 text-blue-950 max-w-md;
+  @apply bg-white shadow-md rounded-lg p-8 text-blue-950 w-full max-w-md;
 }
 </style>
