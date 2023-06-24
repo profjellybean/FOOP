@@ -2,6 +2,8 @@
 import type { Entity } from '@/services/game/ecs';
 import type { AliveComponent, MapComponent, PositionComponent } from '@/services/game/ecs/components';
 import { computed } from 'vue';
+import type { ShallowRef } from 'vue';
+import type { MapComponent } from '@/services/game/ecs/components';
 
 const props = defineProps<{
   mouse: Entity,
@@ -26,7 +28,6 @@ const hidden = computed(() => {
     return false;
   }
 });
-
 
 </script>
 
