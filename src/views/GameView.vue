@@ -22,7 +22,7 @@ const mice = computed(() => gameService.currentState.value.opponents);
     <GamePlayer v-for="player in otherPlayers" :key="player.id" :player="player" :game-service="gameService">
     </GamePlayer>
     <template v-for="(mouse, i) in mice" :key="i">
-      <GameOpponent :mouse="mouse" />
+      <GameOpponent :mouse="mouse" :map-comp="gameService.map" />
     </template>
   </div>
 </template>

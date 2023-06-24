@@ -199,6 +199,12 @@ export class PeerService {
     }
 
     conn.on('open', () => {
+      if (this.peerConnections.filter((c) => c.peer === conn.peer).length > 0) {
+        // check if we already have an option connection to the given peer
+        console.debug(this.logTag + ' Connection already exists, peer id: ', conn.peer);
+        this._store.setPeerConnectionState(conn.peer, PeerConnectionState.CONNECTED);
+        return;
+      }
       console.debug(`${this.logTag} New connection from peer ${conn.peer} established`);
       this._store.setPeerConnectionState(conn.peer, PeerConnectionState.CONNECTED);
 

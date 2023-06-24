@@ -2,7 +2,7 @@ import { usePeerService } from '@/composables/peer';
 import router from '@/router';
 import { useRafFn, useThrottleFn, type PromisifyFn } from '@vueuse/core';
 import { klona } from 'klona';
-import { reactive, ref, watch, type Ref } from "vue";
+import { reactive, ref, triggerRef, watch, type Ref } from "vue";
 import type { Router } from 'vue-router';
 import type { PeerService } from '../peer';
 import type { InitialSyncMessage, PeerContext, StartGameMessage } from '../peer/data_handlers/types';
@@ -11,6 +11,13 @@ import { ECS, Entity, type EntityMap } from "./ecs";
 import { AliveComponent, AppearanceComponent, MapComponent, PositionComponent, PositionListComponent } from "./ecs/components";
 import { MouseHelper, SinglePosition } from "./ecs/pathfinding";
 import { GameStatus, type GameContext, type GameSettings } from './types';
+
+function genGameState(): GameState {
+  return {
+    players: {},
+    opponents: {}
+  };
+}
 
 export class GameService {
   logTag = "[GameService]";
@@ -22,8 +29,8 @@ export class GameService {
   map: MapComponent = new MapComponent();
   numberOfMice: number;
 
-  currentState: Ref<GameState> = ref({} as GameState);
-  stateBuffer: GameState = {} as GameState;
+  currentState: Ref<GameState> = ref(genGameState());
+  stateBuffer: GameState = genGameState();
   mouseHelper: MouseHelper;
   counter = 0;
   killCount = reactive({ kills: 0 });;
@@ -350,12 +357,9 @@ export class GameService {
 
     }
 
-    this.stateBuffer = {
-      players: {},
-      opponents: {}
-    };
+    this.stateBuffer = genGameState();
 
-    // triggerRef(this.currentState);
+    triggerRef(this.currentState);
 
     if (this.gameFinished === true) {
       this.gameLoopPlayer.pause();
@@ -474,6 +478,8 @@ export class GameService {
     // an update contains new players positions and we should update them directly in our current state
     // at the moment the mice won't be updated
     const updatePlayers = data.value.players;
+
+    console.log(updatePlayers);
 
     this._updateEntityMap(this.stateBuffer.players, updatePlayers, true);
   }

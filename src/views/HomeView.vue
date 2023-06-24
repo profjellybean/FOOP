@@ -13,7 +13,7 @@ const { copy } = useClipboard()
 const parseLobbyId = (lobbyId: string) => {
   if (lobbyId.startsWith('http')) {
     const url = new URL(lobbyId)
-    const id = url.pathname.replace('/lobby/', '')
+    const id = url.pathname.replace(/.*\/lobby\//, '')
 
     return id
   }
@@ -54,7 +54,7 @@ const connectToLobby = async () => {
 
   const peerId = parseLobbyId(lobbyId.value.value)
 
-  const connected = await peerService.value.connectToPeer(peerId)
+  const connected = await peerService.value.connectToPeer(peerId, true)
 
   if (connected) {
     router.push(`/lobby/${peerId}`);

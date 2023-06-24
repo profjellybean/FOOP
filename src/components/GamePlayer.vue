@@ -69,8 +69,8 @@ if (props.controllable) {
 
 <template>
   <div class="absolute h-6 w-6" :style="{
-    top: `${position!.y ?? '0'}px`,
-    left: `${position!.x ?? '0'}px`
+    top: `${position?.y ?? '0'}px`,
+    left: `${position?.x ?? '0'}px`
   }"><v-icon name="fa-cat" scale="2"></v-icon>
 
   </div>
