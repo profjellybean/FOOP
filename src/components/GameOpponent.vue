@@ -20,10 +20,11 @@ const position = computed(() => {
 <template>
   <div v-if="position === null">
   </div>
-  <div v-else class="absolute h-2 w-2 bg-blue-400" :style="{
+  <div v-else class="absolute h-2 w-2" :style="{
     top: `${position!.top}px`,
     left: `${position!.left}px`
   }">
+    <v-icon name="gi-seated-mouse" animation="spin"></v-icon>
   </div>
 </template>
 

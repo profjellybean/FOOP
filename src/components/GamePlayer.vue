@@ -85,10 +85,11 @@ if (props.controllable) {
 </script>
 
 <template>
-  <div class="absolute h-5 w-5 bg-pink-600" :style="{
+  <div class="absolute h-6 w-6" :style="{
     top: `${position!.top}px`,
     left: `${position!.left}px`
-  }">
+  }"><v-icon name="fa-cat" scale="2"></v-icon>
+
   </div>
 </template>
 

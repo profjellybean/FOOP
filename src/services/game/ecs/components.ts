@@ -123,6 +123,10 @@ export class MapComponent implements Component {
       occupied: null,
       type: 'entry'
     }
+    this.map[80][10] = {
+      occupied: null,
+      type: 'entry'
+    }
     return this.map;
   }
 }
