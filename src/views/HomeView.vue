@@ -3,10 +3,35 @@ import { usePeerService } from '@/composables/peer';
 import router from '@/router';
 import { usePeerConnectionStore } from '@/stores/peerConnection';
 import { useClipboard } from '@vueuse/core';
-import { ref } from 'vue';
+import { onMounted, ref } from 'vue';
 
 const connectionStore = usePeerConnectionStore();
 const { peerService } = usePeerService();
+
+const initPeer = async (isHost = false) => {
+  const res = await peerService.value.initSelf(undefined, isHost);
+
+  if (!res) {
+    console.error("could not init peer service correctly, cannot create game");
+    return;
+  }
+}
+
+onMounted(async () => {
+  if (window.location.hash.startsWith('#/lobby/')) {
+    console.log("weee haz a hash");
+    const peerId = window.location.hash.replace('#/lobby/', '')
+    if (peerId !== '') {
+      await initPeer();
+
+      const connected = await peerService.value.connectToPeer(peerId, true)
+
+      if (connected) {
+        router.push(`/lobby/${peerId}`);
+      }
+    }
+  }
+})
 
 const { copy } = useClipboard()
 
@@ -21,21 +46,12 @@ const parseLobbyId = (lobbyId: string) => {
   return lobbyId
 }
 
-const initPeer = async (isHost = false) => {
-  const res = await peerService.value.initSelf(undefined, isHost);
-
-  if (!res) {
-    console.error("could not init peer service correctly, cannot create game");
-    return;
-  }
-}
-
 const createGame = async () => {
   if (peerService === undefined) return
 
   await initPeer(true)
 
-  copy(window.location.protocol + '//' + window.location.host + "/lobby/" + connectionStore.peerId);
+  copy(window.location.protocol + '//' + window.location.host + window.location.pathname + "#/lobby/" + connectionStore.peerId);
 
   router.push(`/lobby/${connectionStore.peerId}`);
 }
