@@ -91,7 +91,7 @@ export class MapComponent implements Component {
         }
       }
     }
-    this.map[85][10] = {
+    this.map[99][10] = {
       occupied: null,
       type: 'meeting'
     }
