@@ -4,13 +4,14 @@ export type EntityMap = { [key: string]: Entity };
 
 export class ECS {
   _entityCount: number = 0;
-  _entities: EntityMap = {};
+  _entities: EntityMap;
   numberOfMice: number;
 
 
 
   constructor(numOfMice: number) {
     this.numberOfMice = numOfMice;
+    this._entities = {};
   }
 
   getMouse(id: string): Entity {

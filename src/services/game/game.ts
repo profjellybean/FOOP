@@ -2,7 +2,7 @@ import { usePeerService } from '@/composables/peer';
 import router from '@/router';
 import { useRafFn, useThrottleFn, type PromisifyFn } from '@vueuse/core';
 import { klona } from 'klona';
-import { reactive, ref, triggerRef, watch, type Ref } from "vue";
+import { reactive, ref, triggerRef, type Ref } from "vue";
 import type { Router } from 'vue-router';
 import type { PeerService } from '../peer';
 import type { InitialSyncMessage, PeerContext, StartGameMessage } from '../peer/data_handlers/types';
@@ -52,9 +52,17 @@ export class GameService {
       this.gameLoopPlayer.pause();
     });
 
-    watch(this.currentState, (newVal) => {
-      console.log("new state", newVal);
+    router.beforeEach((to, from, next) => {
+      if (from.name === "multiplayer_game" && to.name !== "multiplayer_game") {
+        this._disposeService();
+      }
+      next();
     });
+  }
+
+  _disposeService() {
+    this.gameLoopPlayer.pause();
+    this.entitySystem = new ECS(this.numberOfMice);
   }
 
   async updateOpponentPosition() {
