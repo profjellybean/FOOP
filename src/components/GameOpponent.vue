@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import type { Entity } from '@/services/game/ecs';
-import type { PositionComponent } from '@/services/game/ecs/components';
+import type { AliveComponent, PositionComponent } from '@/services/game/ecs/components';
 import { computed } from 'vue';
 
 const props = defineProps<{
   mouse: Entity,
 }>();
 
-let pos = computed(() => props.mouse && props.mouse.getComponent<PositionComponent>('pos'));
+const pos = computed(() => props.mouse && props.mouse.getComponent<PositionComponent>('pos'));
+const alive = computed(() => props.mouse && props.mouse.getComponent<AliveComponent>('isAlive'));
 
 const position = computed(() => {
   let rect = document.getElementById(pos.value?.x!.toString() + ' ' + pos.value?.y!.toString())?.getBoundingClientRect();
@@ -21,8 +22,9 @@ const position = computed(() => {
 
 <template>
   <div class="absolute h-2 w-2 bg-green-600" :style="{
-    top: `${position.y}px`,
-    left: `${position.x}px`
+    top: `${position?.y}px`,
+    left: `${position?.x}px`,
+    display: alive.isAlive ? 'block' : 'none'
   }"> </div>
 </template>
 

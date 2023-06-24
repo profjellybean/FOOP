@@ -2,14 +2,14 @@ import { usePeerService } from '@/composables/peer';
 import router from '@/router';
 import { useRafFn, useThrottleFn, type PromisifyFn } from '@vueuse/core';
 import { klona } from 'klona';
-import { ref, triggerRef, watch, type Ref } from "vue";
+import { reactive, ref, triggerRef, watch, type Ref } from "vue";
 import type { Router } from 'vue-router';
 import type { PeerService } from '../peer';
 import type { InitialSyncMessage, PeerContext, StartGameMessage } from '../peer/data_handlers/types';
 import { PeerServiceHook } from '../peer/types';
 import { ECS, Entity, type EntityMap } from "./ecs";
-import { AliveComponent, AppearanceComponent, MapComponent, PositionComponent } from "./ecs/components";
-import { MouseHelper } from "./ecs/pathfinding";
+import { AliveComponent, AppearanceComponent, MapComponent, PositionComponent, PositionListComponent } from "./ecs/components";
+import { MouseHelper, SinglePosition } from "./ecs/pathfinding";
 import { GameStatus, type GameContext, type GameSettings } from './types';
 
 export class GameService {
@@ -25,6 +25,9 @@ export class GameService {
   currentState: Ref<GameState> = ref({} as GameState);
   stateBuffer: GameState = {} as GameState;
   mouseHelper: MouseHelper;
+  counter = 0;
+  killCount = reactive({ kills: 0 });;
+  winCount = reactive({ wins: 0 });;
   _router?: Router;
 
   _multiplayerUpdater?: PromisifyFn<() => void>;
@@ -33,7 +36,7 @@ export class GameService {
 
   constructor(entitySystem?: ECS, settings?: GameSettings) {
     this._settings = settings ?? { multiplayer: false, networked: false };
-    this.mouseHelper = new MouseHelper(this.map);
+    this.mouseHelper = new MouseHelper();
     this.numberOfMice = this.mouseHelper.getNumberOfMice();
     this.entitySystem = entitySystem ?? new ECS(this.numberOfMice);
     this.map.init();
@@ -51,7 +54,7 @@ export class GameService {
     for (let i = 0; i < this.numberOfMice; i++) {
       const mouse = this.currentState.value.opponents[i.toString()];
       if (this.entitySystem.isAlive(mouse.id)) {
-        await this.mouseHelper.updateMousePosition(mouse);
+        await this.mouseHelper.updateMousePosition(mouse, this.map);
       }
     }
   }
@@ -171,7 +174,7 @@ export class GameService {
       const ent = this.entitySystem.createEntity(i.toString());
       ent.addComponent(new AppearanceComponent(), { shape: 'mouse' });
       ent.addComponent(new PositionComponent('pos'), { x: this.mouseHelper.getInitialMouseX(), y: this.mouseHelper.getInitialMouseY() });
-      ent.addComponent(new PositionComponent('goal'), { x: 80, y: 0 });
+      ent.addComponent(new PositionListComponent('targetList'), this.generateMouseGoalList()); // getRandomPathStrategy
       ent.addComponent(new AliveComponent, { isAlive: true });
       // todo: add a collision component, to know when mice collide with cats
       // ent.addComponent(new CollisionComponent());
@@ -179,6 +182,35 @@ export class GameService {
       entities[ent.id] = ent;
     }
     return entities;
+  }
+
+  randomIntFromInterval(min: number, max: number) { // min and max included 
+    return Math.floor(Math.random() * (max - min + 1) + min)
+  }
+
+  generateMouseGoalList(): SinglePosition[] {
+    const positionList = [];
+    positionList.push(new SinglePosition(85, 10));
+    // final goal goes first
+    positionList.push(new SinglePosition(this.randomIntFromInterval(0, 99), this.randomIntFromInterval(0, 99))); // each mouse gets a random valid goal
+    const random = this.randomIntFromInterval(1, 3);
+    if (random == 1) {
+      //PathStrategies.speedRunner
+    } else if (random == 2) {
+      //PathStrategies.chicken
+      positionList.push(new SinglePosition(85, 10)); //TODO: implement?
+    }
+    else if (random == 3) {
+      //PathStrategies.tourist
+      positionList.push(new SinglePosition(60, 30));
+      positionList.push(new SinglePosition(60, 10));
+      positionList.push(new SinglePosition(40, 20));
+      positionList.push(new SinglePosition(40, 90));
+      positionList.push(new SinglePosition(20, 80));
+      positionList.push(new SinglePosition(20, 10));
+
+    }
+    return positionList;
   }
 
   /**
@@ -229,9 +261,10 @@ export class GameService {
         if (!this.checkBorder(pos.x!, pos.y! - 1)) {
           break;
         }
-        this.map.map![pos.x!][pos.y!].occupied = null;
+        this.map.map![pos.x!][pos.y!].occupied = null; // vorige Position freigeben
         pos.y = pos.y! - 1;
-        this.map.map![pos.x!][pos.y!].occupied = entity;
+        this.checkCollision(pos.x!, pos.y!);
+        this.map.map![pos.x!][pos.y!].occupied = entity; // neue Position belegen
         break;
       case "right":
         if (!this.checkBorder(pos.x! + 1, pos.y!)) {
@@ -239,6 +272,7 @@ export class GameService {
         }
         this.map.map![pos.x!][pos.y!].occupied = null;
         pos.x = pos.x! + 1;
+        this.checkCollision(pos.x!, pos.y!);
         this.map.map![pos.x!][pos.y!].occupied = entity;
         break;
       case "left":
@@ -247,6 +281,7 @@ export class GameService {
         }
         this.map.map![pos.x!][pos.y!].occupied = null;
         pos.x = pos.x! - 1;
+        this.checkCollision(pos.x!, pos.y!);
         this.map.map![pos.x!][pos.y!].occupied = entity;
         break;
       case "down":
@@ -255,27 +290,64 @@ export class GameService {
         }
         this.map.map![pos.x!][pos.y!].occupied = null;
         pos.y = pos.y! + 1;
+        this.checkCollision(pos.x!, pos.y!);
         this.map.map![pos.x!][pos.y!].occupied = entity;
         break;
       default:
         console.warn(`${this.logTag} Unknown direction ${payload}`);
     }
-    //checkCollision();
+
+  }
+
+  checkCollision(x: number, y: number) { //cat too small, only 1x1
+    this.killChecker(x, y);
+    //ugly code but it works:
+    x = x - 1; //check left -1 0
+    this.killChecker(x, y);
+    x = x + 2; //check right 1 0
+    this.killChecker(x, y);
+    x = x - 1; //check down 0 -1
+    y = y - 1;
+    this.killChecker(x, y);
+    y = y + 2; //check up 0 1
+    this.killChecker(x, y);
+    x = x + 1; // check right upper corner 1 1
+    this.killChecker(x, y);
+    y = y - 2; // check right lower corner 1 -1
+    this.killChecker(x, y);
+    x = x - 2; // check left lower corner -1 -1
+    this.killChecker(x, y);
+    y = y + 2; // check left upper corner -1 1
+    this.killChecker(x, y);
+  }
+
+  killChecker(x: number, y: number) {
+    if (y >= 0 && y < 100 && x >= 0 && x < 100) {
+      if (this.map.map![x][y].occupied != null && this.map.map![x][y].type != "underground") {
+        if (this.map.map![x][y].occupied?.getComponent<AppearanceComponent>("ap").shape == "mouse" && this.map.map![x][y].occupied?.getComponent<AliveComponent>("isAlive").isAlive != false) {
+          const i = this.map.map![x][y].occupied?.id; //TODO: check if it is mouse and 
+          const mouse = this.entitySystem.getMouse(i!.toString())
+          this.killCount.kills += this.mouseHelper.killMouse(mouse);
+        }
+      }
+    }
   }
 
   async _gameLoop() {
-    await this.updateOpponentPosition();
+    this.counter++;
+    if (this.counter % 7 === 0) {
+      this.counter = 0;
+      await this.updateOpponentPosition();
+      this.winCount.wins = this.mouseHelper.getMouseWinCounter();
+    }
 
     if ((this.stateBuffer.players !== undefined && Object.keys(this.stateBuffer.players).length > 0)) {
       if (this._settings.multiplayer && this._settings.networked && this.stateBuffer.players[this.peerService!.peer!.id] !== undefined) {
         // this currently updates only the current users position
         this._multiplayerUpdater!();
       }
-
-      console.log("updating current state with state buffer");
       this._updateEntityMap(this.currentState.value.players, this.stateBuffer.players);
 
-      // this.entitySystem.update(this.stateBuffer.players);
     }
 
     this.stateBuffer = {
@@ -427,4 +499,10 @@ export type GameState = {
   //entities: EntityMap,
   players: EntityMap,
   opponents: EntityMap
+}
+
+enum PathStrategies {
+  speedRunner,
+  chicken,
+  tourist
 }

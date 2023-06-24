@@ -1,4 +1,5 @@
 import type { Entity } from "./index";
+import type { SinglePosition } from "./pathfinding";
 
 export interface Component {
   id: string;
@@ -20,6 +21,9 @@ export const mapComponentFromJson = (json: any): Component => {
       break;
     case 'isAlive':
       comp = new AliveComponent();
+      break;
+    case 'targetList':
+      comp = new PositionListComponent(json.id);
       break;
     default:
       throw new Error(`Unknown component type ${json.id}`);
@@ -52,6 +56,21 @@ export class PositionComponent implements Component {
   init(params: any): Component {
     this.x = params.x ?? 0;
     this.y = params.y ?? 0;
+    return this;
+  }
+}
+
+export class PositionListComponent implements Component {
+  id: string;
+  positions: SinglePosition[];
+
+  constructor(componentName: string) {
+    this.id = componentName;
+    this.positions = [];
+  }
+
+  init(params: any): Component {
+    this.positions = params;
     return this;
   }
 }
@@ -94,7 +113,7 @@ export class MapComponent implements Component {
         }
       }
     }
-    this.map[80][0] = {
+    this.map[85][10] = {
       occupied: null,
       type: 'meeting'
     }

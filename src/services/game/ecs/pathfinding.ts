@@ -1,35 +1,50 @@
 import type { Entity } from ".";
-import type { AliveComponent, MapComponent, PositionComponent } from "./components";
+import type { AliveComponent, MapComponent, PositionComponent, PositionListComponent } from "./components";
 
 export class MouseHelper {
     private numberOfMice: number = 25;
     private mouseWinCounter: number = 0;
-    private map: MapComponent;
 
-    constructor(map: MapComponent) {
-        this.map = map;
-    }
-
-
-
-    async updateMousePosition(mouse: Entity): Promise<void> {
+    async updateMousePosition(mouse: Entity, map: MapComponent): Promise<void> {
         return new Promise((resolve, reject) => {
-            const mousePos = Pos.fromComponent(mouse.getComponent<PositionComponent>("pos"));
-            const goalPos = Pos.fromComponent(mouse.getComponent<PositionComponent>("goal"));
+            const mousePos = new SinglePosition(mouse.getComponent<PositionComponent>("pos").x, mouse.getComponent<PositionComponent>("pos").y);
+            const mouseTargetList = mouse.getComponent<PositionListComponent>("targetList").positions;
+            const goalPos = this.getCurrentGoalPosition(mouseTargetList);
+            const alive = mouse.getComponent<AliveComponent>("isAlive");
 
-            const newPos = this.calcStep(mousePos, goalPos);
-
-            this.map.map![mousePos!.x!][mousePos!.y!].occupied = null;
-            this.map.map![newPos.x!][newPos.y!].occupied = mouse;
-
-            if (newPos.x === goalPos.x && newPos.y === goalPos.y || mousePos!.x === goalPos!.x && mousePos!.y === goalPos!.y) {
-                mouse.getComponent<AliveComponent>("isAlive").isAlive = false;
-                this.mouseWinCounter++;
+            if (goalPos === undefined && alive.isAlive === false) {
                 resolve();
+                return;
+            }
+            if (goalPos === undefined && alive.isAlive === true) {
+                console.error("Mouse is alive but has no goal position");
+                reject();
+                return;
             }
 
-            mouse.getComponent<PositionComponent>("pos").x = newPos.x;
-            mouse.getComponent<PositionComponent>("pos").y = newPos.y;
+            const newPos = this.calcStep(mousePos, goalPos!);
+
+            if (newPos?.x === goalPos?.x && newPos?.y === goalPos?.y || mousePos?.x === goalPos?.x && mousePos?.y === goalPos?.y) {
+                if (mouseTargetList.length === 0) {
+                    alive.isAlive = false;
+                    this.mouseWinCounter++;
+                    resolve();
+                    return;
+                }
+                mouseTargetList.pop();
+            }
+
+            if (newPos === undefined) {
+                console.error("Mouse has no new position");
+                reject();
+                return;
+            }
+
+            map.map![mousePos!.x!][mousePos!.y!].occupied = null; // vorige Position freigeben
+            map.map![newPos!.x!][newPos!.y!].occupied! = mouse; // neue Position belegen
+
+            mouse.getComponent<PositionComponent>("pos").x = newPos!.x;
+            mouse.getComponent<PositionComponent>("pos").y = newPos!.y;
 
             resolve();
         });
@@ -44,41 +59,41 @@ export class MouseHelper {
     }
 
 
-    calcStep(mousePos: Pos, goalPos: Pos): Pos {
-        /*const deltaX = this.mousePos!.x! - this.goalPos!.x!;
-        const deltaY = this.mousePos!.y! - this.goalPos!.y!;
-        const directPath = Math.sqrt(Math.pow(deltaX, 2) + Math.pow(deltaY, 2));
-        if (this.mouseStepSize > directPath) {
-            // Destination Reached
-            return new Pos(undefined, undefined)
+    calcStep(mousePos: SinglePosition, goalPos: SinglePosition): SinglePosition | undefined {
+        if (mousePos !== undefined && mousePos.x !== undefined && mousePos.y !== undefined &&
+            goalPos !== undefined && goalPos.x !== undefined && goalPos.y !== undefined) {
+
+            const deltaX = mousePos!.x! - goalPos!.x!;
+            const deltaY = mousePos!.y! - goalPos!.y!;
+
+            if (deltaX > 0 && deltaY != 0) {
+                if (deltaY > 0) {
+                    return new SinglePosition(mousePos!.x! - 1, mousePos!.y! - 1)
+                } else {
+                    return new SinglePosition(mousePos!.x! - 1, mousePos!.y! + 1)
+                }
+            } if (deltaX < 0 && deltaY != 0) {
+                if (deltaY > 0) {
+                    return new SinglePosition(mousePos!.x! + 1, mousePos!.y! - 1)
+                } else {
+                    return new SinglePosition(mousePos!.x! + 1, mousePos!.y! + 1)
+                }
+            } else {
+                if (deltaY > 0) {
+                    return new SinglePosition(mousePos!.x!, mousePos!.y! - 1)
+                } else {
+                    return new SinglePosition(mousePos!.x!, mousePos!.y! + 1)
+                }
+            }
         }
-        const numberOfSteps = directPath / this.mouseStepSize;
-        const stepX = deltaX / numberOfSteps;
-        const stepY = deltaY / numberOfSteps;
+        return goalPos;
+    }
 
-        return new Pos(Math.floor(this.mousePos!.x! - stepX), Math.floor(this.mousePos!.y! - stepY));*/
-
-        const deltaX = mousePos!.x! - goalPos!.x!;
-        const deltaY = mousePos!.y! - goalPos!.y!;
-
-        if (deltaX > 0) {
-            if (deltaY > 0) {
-                return new Pos(mousePos!.x! - 1, mousePos!.y! - 1)
-            } else {
-                return new Pos(mousePos!.x! - 1, mousePos!.y! + 1)
-            }
-        } if (deltaX < 0) {
-            if (deltaY > 0) {
-                return new Pos(mousePos!.x! + 1, mousePos!.y! - 1)
-            } else {
-                return new Pos(mousePos!.x! + 1, mousePos!.y! + 1)
-            }
+    getCurrentGoalPosition(mouseTargetList: SinglePosition[]): SinglePosition | undefined {
+        if (mouseTargetList !== undefined && mouseTargetList.length !== undefined && mouseTargetList.length > 0) {
+            return mouseTargetList[mouseTargetList.length - 1];
         } else {
-            if (deltaY > 0) {
-                return new Pos(mousePos!.x!, mousePos!.y! - 1)
-            } else {
-                return new Pos(mousePos!.x!, mousePos!.y! + 1)
-            }
+            return undefined;
         }
     }
 
@@ -89,9 +104,22 @@ export class MouseHelper {
     getMouseWinCounter(): number {
         return this.mouseWinCounter;
     }
+
+    killMouse(mouse: Entity): number {
+        if (this.numberOfMice > 0) {
+            if ((mouse.components['isAlive'] as any).isAlive !== false) {
+                this.numberOfMice--;
+                (mouse.components['isAlive'] as any).isAlive = false;
+                console.log(mouse)
+                console.log(this.numberOfMice)
+                return 1;
+            }
+        }
+        return 0;
+    }
 }
 
-class Pos {
+export class SinglePosition {
     x?: number;
     y?: number;
 
@@ -100,7 +128,7 @@ class Pos {
         this.y = yVal;
     }
 
-    static fromComponent(comp: PositionComponent): Pos {
-        return new Pos(comp.x, comp.y);
+    static fromComponent(comp: PositionComponent): SinglePosition {
+        return new SinglePosition(comp.x, comp.y);
     }
 }
