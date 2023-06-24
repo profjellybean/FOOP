@@ -1,1 +1,0 @@
-import{a as l}from"./game-ba1b098f.js";import{v as s}from"./index-ff08295f.js";let t=s({});const v=function(e={networked:!1,multiplayer:!1},r=!1){return(t.entitySystem===void 0||r)&&(t=new l(void 0,e),e!=null&&e.multiplayer&&(e!=null&&e.networked)&&t.initMultiplayer()),{gameService:t}};export{v as u};
