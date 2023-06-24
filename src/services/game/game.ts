@@ -326,7 +326,7 @@ export class GameService {
       if (this.map.map![x][y].occupied != null && this.map.map![x][y].type != "underground") {
         if (this.map.map![x][y].occupied?.getComponent<AppearanceComponent>("ap").shape == "mouse" && this.map.map![x][y].occupied?.getComponent<AliveComponent>("isAlive").isAlive != false) {
           const i = this.map.map![x][y].occupied?.id; //TODO: check if it is mouse and 
-          const mouse = this.entitySystem.getMouse(i!.toString())
+          const mouse = this.currentState.value.opponents[i!.toString()];
           this.killCount.kills += this.mouseHelper.killMouse(mouse);
         }
       }

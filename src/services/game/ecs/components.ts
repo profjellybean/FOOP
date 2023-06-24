@@ -11,25 +11,28 @@ export const mapComponentFromJson = (json: any): Component => {
   switch (json.id) {
     case 'map':
       comp = new MapComponent();
+      comp.init(json);
       break;
     case 'pos':
     case 'goal':
       comp = new PositionComponent(json.id);
+      comp.init(json);
       break;
     case 'ap':
       comp = new AppearanceComponent();
+      comp.init(json);
       break;
     case 'isAlive':
       comp = new AliveComponent();
+      comp.init(json.isAlive);
       break;
     case 'targetList':
       comp = new PositionListComponent(json.id);
+      comp.init(json.positions);
       break;
     default:
       throw new Error(`Unknown component type ${json.id}`);
   }
-
-  comp.init(json);
 
   return comp;
 };
