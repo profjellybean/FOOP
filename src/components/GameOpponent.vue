@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import type { Entity } from '@/services/game/ecs';
-import type { AliveComponent, PositionComponent } from '@/services/game/ecs/components';
+import type { AliveComponent, MapComponent, PositionComponent } from '@/services/game/ecs/components';
 import { computed } from 'vue';
 
 const props = defineProps<{
   mouse: Entity,
+  mapComp: MapComponent
 }>();
 
 const pos = computed(() => props.mouse && props.mouse.getComponent<PositionComponent>('pos'));
@@ -18,14 +19,25 @@ const position = computed(() => {
   };
 });
 
+const hidden = computed(() => {
+  if (props.mapComp.map![pos.value?.x!][pos.value?.y!].type != 'surface') {
+    return true;
+  } else {
+    return false;
+  }
+});
+
+
 </script>
 
 <template>
-  <div class="absolute h-2 w-2 bg-green-600" :style="{
+  <div class="absolute h-2 w-2" :style="{
     top: `${position?.y}px`,
     left: `${position?.x}px`,
-    display: alive.isAlive ? 'block' : 'none'
-  }"> </div>
+    display: alive.isAlive && !hidden ? 'block' : 'none'
+  }">
+    <v-icon name="gi-seated-mouse"></v-icon>
+  </div>
 </template>
 
 <style></style>

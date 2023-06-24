@@ -2,7 +2,7 @@ import { usePeerService } from '@/composables/peer';
 import router from '@/router';
 import { useRafFn, useThrottleFn, type PromisifyFn } from '@vueuse/core';
 import { klona } from 'klona';
-import { reactive, ref, triggerRef, watch, type Ref } from "vue";
+import { reactive, ref, watch, type Ref } from "vue";
 import type { Router } from 'vue-router';
 import type { PeerService } from '../peer';
 import type { InitialSyncMessage, PeerContext, StartGameMessage } from '../peer/data_handlers/types';
@@ -355,7 +355,7 @@ export class GameService {
       opponents: {}
     };
 
-    triggerRef(this.currentState);
+    // triggerRef(this.currentState);
 
     if (this.gameFinished === true) {
       this.gameLoopPlayer.pause();

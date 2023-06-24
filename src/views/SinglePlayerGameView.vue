@@ -18,10 +18,10 @@ const mice = computed(() => gameService.currentState.value.opponents);
 
 <template>
   <div class="h-full w-full bg-sky-700 flex justify-center items-center">
-    <GameMap :map-comp="gameService.map.map"></GameMap>
+    <GameMap :map-comp="gameService.map"></GameMap>
     <GamePlayer v-if="player !== undefined" :player="player" :game-service="gameService" controllable></GamePlayer>
     <ul>
-      <GameOpponent v-for="mouse in mice" v-bind:key="mouse.id" :mouse="mouse">
+      <GameOpponent v-for="mouse in mice" v-bind:key="mouse.id" :mouse="mouse" :map-comp="gameService.map">
       </GameOpponent>
     </ul>
   </div>
