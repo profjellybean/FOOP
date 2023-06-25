@@ -14,7 +14,7 @@ const toggleGame = () => {
   if (gameStatus.value === GameStatus.started) {
     props.service.pauseGame();
   } else if (gameStatus.value === GameStatus.paused) {
-    // props.service.resumeGame();
+    props.service.resumeGame();
   }
 }
 
@@ -25,6 +25,7 @@ const toggleGame = () => {
     <div class="flex flex-col">
       <div class="flex justify-between">
         {{ props.service.context.status == GameStatus.started ? "Paused" : "Started" }}
+        <button @click="toggleGame" class="my-2 py-1 px-2 bg-slate-400 text-slate-800">Toggle Game</button>
       </div>
       <div class="flex flex-col justify-between">
         <div class="text-gray-700 font-bold text-xl">Kills: {{ props.service.killCount }}</div>

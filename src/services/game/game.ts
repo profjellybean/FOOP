@@ -166,6 +166,18 @@ export class GameService {
     }
 
     this.gameLoopPlayer.pause();
+    this.context.status = GameStatus.paused;
+  }
+
+  resumeGame() {
+    if (this._settings.multiplayer && this._settings.networked) {
+      this.peerService!.send({
+        type: "resume_game",
+      });
+    }
+
+    this.gameLoopPlayer.resume();
+    this.context.status = GameStatus.started;
   }
 
 
@@ -190,7 +202,7 @@ export class GameService {
       ent.addComponent(new AppearanceComponent(), { shape: 'mouse' });
       ent.addComponent(new PositionComponent('pos'), { x: this.mouseHelper.getInitialMouseX(), y: this.mouseHelper.getInitialMouseY() });
       ent.addComponent(new PositionListComponent('targetList'), this.generateMouseGoalList()); // getRandomPathStrategy
-      ent.addComponent(new AliveComponent, { isAlive: true });
+      ent.addComponent(new AliveComponent(), true);
       // todo: add a collision component, to know when mice collide with cats
       // ent.addComponent(new CollisionComponent());
 
@@ -276,37 +288,25 @@ export class GameService {
         if (!this.checkBorder(pos.x!, pos.y! - 1)) {
           break;
         }
-        this.map.map![pos.x!][pos.y!].occupied = null; // vorige Position freigeben
         pos.y = pos.y! - 1;
-        this.checkCollision(pos.x!, pos.y!);
-        this.map.map![pos.x!][pos.y!].occupied = entity; // neue Position belegen
         break;
       case "right":
         if (!this.checkBorder(pos.x! + 1, pos.y!)) {
           break;
         }
-        this.map.map![pos.x!][pos.y!].occupied = null;
         pos.x = pos.x! + 1;
-        this.checkCollision(pos.x!, pos.y!);
-        this.map.map![pos.x!][pos.y!].occupied = entity;
         break;
       case "left":
         if (!this.checkBorder(pos.x! - 1, pos.y!)) {
           break;
         }
-        this.map.map![pos.x!][pos.y!].occupied = null;
         pos.x = pos.x! - 1;
-        this.checkCollision(pos.x!, pos.y!);
-        this.map.map![pos.x!][pos.y!].occupied = entity;
         break;
       case "down":
         if (!this.checkBorder(pos.x!, pos.y! + 1)) {
           break;
         }
-        this.map.map![pos.x!][pos.y!].occupied = null;
         pos.y = pos.y! + 1;
-        this.checkCollision(pos.x!, pos.y!);
-        this.map.map![pos.x!][pos.y!].occupied = entity;
         break;
       default:
         console.warn(`${this.logTag} Unknown direction ${payload}`);
@@ -338,7 +338,9 @@ export class GameService {
 
   killChecker(x: number, y: number) {
     if (y >= 0 && y < 100 && x >= 0 && x < 100) {
+      const cell = this.map.map![x][y].occupied;
       if (this.map.map![x][y].occupied != null && this.map.map![x][y].type != "underground") {
+        console.log("can kill", this.map.map![x][y].occupied)
         if (this.map.map![x][y].occupied?.getComponent<AppearanceComponent>("ap").shape == "mouse" && this.map.map![x][y].occupied?.getComponent<AliveComponent>("isAlive").isAlive != false) {
           const i = this.map.map![x][y].occupied?.id; //TODO: check if it is mouse and 
           const mouse = this.currentState.value.opponents[i!.toString()];
@@ -354,6 +356,9 @@ export class GameService {
       this.counter = 0;
       await this.updateOpponentPosition();
       this.winCount.value = this.mouseHelper.getMouseWinCounter();
+
+      const playerPos = this.currentState.value.players["singleplayer"].getComponent<PositionComponent>("pos");
+      this.checkCollision(playerPos.x!, playerPos.y!);
     }
 
     if ((this.stateBuffer.players !== undefined && Object.keys(this.stateBuffer.players).length > 0)) {
@@ -457,6 +462,7 @@ export class GameService {
 
   _registerInGameHandlers() {
     this.peerService!.dataHandler!.registerHandler("pause_game", this._handlePauseGame.bind(this));
+    this.peerService!.dataHandler!.registerHandler("resume_game", this._handleResumeGame.bind(this));
     this.peerService!.dataHandler!.registerHandler("update", this._handleUpdate.bind(this));
   }
 
@@ -479,6 +485,13 @@ export class GameService {
 
     this.context.status = GameStatus.paused;
     this.gameLoopPlayer.pause();
+  }
+
+  async _handleResumeGame(context: PeerContext, data: any) {
+    console.log(this.logTag + " Resuming game");
+
+    this.context.status = GameStatus.started;
+    this.gameLoopPlayer.resume();
   }
 
   async _handleUpdate(context: PeerContext, data: { type: "update", value: GameState }) {
