@@ -1,11 +1,9 @@
 <script setup lang="ts">
 import { GameService } from '@/services/game/game';
-import { computed, toRefs } from 'vue';
+import { computed } from 'vue';
 
 const gameService = new GameService();
 const playerId = "singleplayer"
-const killCount = toRefs(gameService.killCount);
-const winCount = toRefs(gameService.winCount);
 
 setTimeout(() => {
   gameService!.startGame([playerId]);
@@ -18,6 +16,7 @@ const mice = computed(() => gameService.currentState.value.opponents);
 
 <template>
   <div class="h-full w-full bg-sky-700 flex justify-center items-center">
+    <GameMenu :service="gameService"></GameMenu>
     <GameMap :map-comp="gameService.map"></GameMap>
     <GamePlayer v-if="player !== undefined" :player="player" :game-service="gameService" controllable></GamePlayer>
     <ul>

@@ -2,7 +2,7 @@ import { usePeerService } from '@/composables/peer';
 import router from '@/router';
 import { useRafFn, useThrottleFn, type PromisifyFn } from '@vueuse/core';
 import { klona } from 'klona';
-import { reactive, ref, triggerRef, type Ref } from "vue";
+import { ref, triggerRef, type Ref } from "vue";
 import type { Router } from 'vue-router';
 import type { PeerService } from '../peer';
 import type { InitialSyncMessage, PeerContext, StartGameMessage } from '../peer/data_handlers/types';
@@ -33,8 +33,8 @@ export class GameService {
   stateBuffer: GameState = genGameState();
   mouseHelper: MouseHelper;
   counter = 0;
-  killCount = reactive({ kills: 0 });;
-  winCount = reactive({ wins: 0 });;
+  killCount = ref(0);
+  winCount = ref(0);
   _router?: Router;
 
   _multiplayerUpdater?: PromisifyFn<() => void>;
@@ -342,7 +342,7 @@ export class GameService {
         if (this.map.map![x][y].occupied?.getComponent<AppearanceComponent>("ap").shape == "mouse" && this.map.map![x][y].occupied?.getComponent<AliveComponent>("isAlive").isAlive != false) {
           const i = this.map.map![x][y].occupied?.id; //TODO: check if it is mouse and 
           const mouse = this.currentState.value.opponents[i!.toString()];
-          this.killCount.kills += this.mouseHelper.killMouse(mouse);
+          this.killCount.value += this.mouseHelper.killMouse(mouse);
         }
       }
     }
@@ -353,7 +353,7 @@ export class GameService {
     if (this.counter % 7 === 0) {
       this.counter = 0;
       await this.updateOpponentPosition();
-      this.winCount.wins = this.mouseHelper.getMouseWinCounter();
+      this.winCount.value = this.mouseHelper.getMouseWinCounter();
     }
 
     if ((this.stateBuffer.players !== undefined && Object.keys(this.stateBuffer.players).length > 0)) {

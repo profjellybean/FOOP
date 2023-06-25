@@ -31,12 +31,6 @@ export class MouseHelper {
                     resolve();
                     return;
                 }
-                console.log(mouseTargetList);
-                ////////
-                ////////
-                //////// TODO: FIX THAT THE MOUSETARGETLIST IS NOT SYNCED CORRECTLY BETWEEN HOST AND PEERS
-                ////////
-                ////////
                 mouseTargetList.pop();
             }
 
