@@ -23,7 +23,7 @@ export class GameService {
   logTag = "[GameService]";
   _settings: GameSettings;
   context: GameContext = {} as GameContext;
-  gameFinished: boolean = false;
+  gameFinished = ref(false);
   peerService?: PeerService;
   entitySystem: ECS;
   map: MapComponent = new MapComponent();
@@ -58,6 +58,18 @@ export class GameService {
       }
       next();
     });
+  }
+
+  restartGame(players?: string[]) {
+    // cleanup old ECS and state
+    this.winCount.value = 0;
+    this.killCount.value = 0;
+    this.gameFinished.value = false;
+    this.map.init();
+    this.entitySystem = new ECS(this.numberOfMice);
+    this.currentState.value = genGameState();
+
+    this.startGame(players);
   }
 
   _disposeService() {
@@ -375,16 +387,18 @@ export class GameService {
     watch([this.winCount, this.killCount], () => {
       if (this.winCount.value + this.killCount.value === this.numberOfMice) {
         console.log("you are doone!");
-        this.gameFinished = true;
-        this.peerService!.send({
-          type: "game_over"
-        });
+        this.gameFinished.value = true;
+        if (this._settings.multiplayer && this._settings.networked) {
+          this.peerService!.send({
+            type: "game_over"
+          });
+        }
       }
     })
   }
 
   async _gameLoop() {
-    if (this.gameFinished === true) {
+    if (this.gameFinished.value === true) {
       this.gameLoopPlayer.pause();
       return;
     }
@@ -548,7 +562,7 @@ export class GameService {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async _handleGameEnd(context: PeerContext, data: { type: 'game_over' }) {
     console.log("got game over");
-    this.gameFinished = true;
+    this.gameFinished.value = true;
   }
 
   _updateEntityMap(ents: EntityMap, updated: EntityMap, createMode: boolean = false) {

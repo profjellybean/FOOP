@@ -181,7 +181,7 @@ export class PeerService {
   send(data: any) {
     // todo: this is somehow very simple .. maaaybe too simple? 😁
     for (const peer of this.peerConnections) {
-      console.debug(this.logTag + " Sending: ", data, " to peer: ", peer.peer)
+      // console.debug(this.logTag + " Sending: ", data, " to peer: ", peer.peer)
       peer.send(data)
     }
   }

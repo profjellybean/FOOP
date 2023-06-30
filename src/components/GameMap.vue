@@ -12,7 +12,8 @@ const props = defineProps<{
             class="w-full flex justify-center items-stretch bg-white">
             <div class="grid-item p-0" v-for="(cell, index1) in  row " :key="index1" :id="index1 + ' ' + index" :class="{
                 'bg-gray-400 rounded-full': cell.type === 'entry',
-                'bg-yellow-400 shadow-md shadow-yellow-700': cell.type === 'meeting',
+                // 'bg-yellow-400 shadow-md shadow-yellow-700': cell.type === 'meeting',
+                'bg-gray-400 rounded-full shadow-sm shadow-gray-400': cell.type === 'meeting',
             }">
             </div>
         </div>
