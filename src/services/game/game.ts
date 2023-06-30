@@ -2,7 +2,7 @@ import { usePeerService } from '@/composables/peer';
 import router from '@/router';
 import { useRafFn, useThrottleFn, type PromisifyFn } from '@vueuse/core';
 import { klona } from 'klona';
-import { ref, triggerRef, type Ref } from "vue";
+import { ref, triggerRef, watch, type Ref } from "vue";
 import type { Router } from 'vue-router';
 import type { PeerService } from '../peer';
 import type { InitialSyncMessage, PeerContext, StartGameMessage } from '../peer/data_handlers/types';
@@ -93,6 +93,7 @@ export class GameService {
       if (this.context.gameId === this.peerService!.peer!.id) {
         // user is host
         this.peerService!.dataHandler!.registerHandler("sync_ack", this._handleInitialSyncAck.bind(this));
+        this._checkWinCondition();
       } else {
         this.peerService!.dataHandler!.registerHandler("initial_state_sync", this._handleInitialSync.bind(this));
       }
@@ -153,6 +154,7 @@ export class GameService {
     } else {
       // if we are not in a multiplayer game we can just start the game
       this.context.status = GameStatus.started;
+      this._checkWinCondition();
       this.gameLoopPlayer.resume();
     }
   }
@@ -369,11 +371,35 @@ export class GameService {
     return v;
   }
 
+  _checkWinCondition() {
+    watch([this.winCount, this.killCount], () => {
+      if (this.winCount.value + this.killCount.value === this.numberOfMice) {
+        console.log("you are doone!");
+        this.gameFinished = true;
+        this.peerService!.send({
+          type: "game_over"
+        });
+      }
+    })
+  }
+
   async _gameLoop() {
+    if (this.gameFinished === true) {
+      this.gameLoopPlayer.pause();
+      return;
+    }
+
     this.counter++;
     if (this.counter % 7 === 0) {
       this.counter = 0;
-      const playerPos = this.currentState.value.players["singleplayer"].getComponent<PositionComponent>("pos");
+
+      let playerPos;
+      if (this._settings.multiplayer && this._settings.networked) {
+        playerPos = this.currentState.value.players[this.peerService!.peer!.id].getComponent<PositionComponent>("pos");
+      } else {
+        playerPos = this.currentState.value.players["singleplayer"].getComponent<PositionComponent>("pos");
+      }
+
       this.checkCollision(playerPos.x!, playerPos.y!);
 
       await this.updateOpponentPosition();
@@ -392,11 +418,6 @@ export class GameService {
     this.stateBuffer = genGameState();
 
     triggerRef(this.currentState);
-
-    if (this.gameFinished === true) {
-      this.gameLoopPlayer.pause();
-      return;
-    }
   }
 
   /**
@@ -425,16 +446,12 @@ export class GameService {
     this.context.status = GameStatus.started;
     await this._router!.push({ name: "multiplayer_game", params: { gameId: this.context.gameId } });
 
-    console.log(this.logTag + " sending sync ack to host");
-
     host.send({
       type: "sync_ack"
     });
 
     this.peerService!.dataHandler!.removeHandler("initial_state_sync");
     this.peerService!.dataHandler!.registerHandler("start_game", this._handleStartGame.bind(this));
-
-    console.log("initial sync post state", this.currentState.value);
   }
 
   /**
@@ -448,10 +465,8 @@ export class GameService {
   async _handleInitialSyncAck(context: PeerContext, data: { type: "sync_ack" }) {
     // todo check if all peers in the game have sent an ack
     // if so, send the `start_game` event to the peers
-    console.log(this.logTag + " handle sync_ack data");
 
     if (!this.context.players) {
-      console.log(this.logTag + " got handleSyncAck but no players");
       return;
     }
 
@@ -474,8 +489,6 @@ export class GameService {
       });
       this._registerInGameHandlers();
       this.gameLoopPlayer.resume();
-
-      console.log("initial sync post state", this.currentState.value);
     }
   }
 
@@ -484,6 +497,7 @@ export class GameService {
     this.peerService!.dataHandler!.registerHandler("resume_game", this._handleResumeGame.bind(this));
     this.peerService!.dataHandler!.registerHandler("update", this._handleUpdate.bind(this));
     this.peerService!.dataHandler!.registerHandler("kill", this._handleKillMouse.bind(this));
+    this.peerService!.dataHandler!.registerHandler("game_over", this._handleGameEnd.bind(this));
   }
 
   /**
@@ -492,6 +506,7 @@ export class GameService {
    * @param context Provides access to the peerService and the senderId
    * @param data -
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async _handleStartGame(context: PeerContext, data: StartGameMessage) {
     console.log(this.logTag + " Starting gaame");
 
@@ -500,6 +515,7 @@ export class GameService {
     this.gameLoopPlayer.resume();
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async _handlePauseGame(context: PeerContext, data: any) {
     console.log(this.logTag + " Pausing game");
 
@@ -507,6 +523,7 @@ export class GameService {
     this.gameLoopPlayer.pause();
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async _handleResumeGame(context: PeerContext, data: any) {
     console.log(this.logTag + " Resuming game");
 
@@ -515,19 +532,23 @@ export class GameService {
   }
 
   async _handleUpdate(context: PeerContext, data: { type: "update", value: GameState }) {
-    console.log(this.logTag + " Updating game");
     // an update contains new players positions and we should update them directly in our current state
     // at the moment the mice won't be updated
     const updatePlayers = data.value.players;
 
-    console.log(updatePlayers);
-
     this._updateEntityMap(this.stateBuffer.players, updatePlayers, true);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async _handleKillMouse(context: PeerContext, data: { type: 'kill', value: number | string }) {
-    console.log("killing mouse", data.value)
     this.currentState.value.opponents[data.value.toString()].getComponent<AliveComponent>("isAlive").isAlive = false;
+    this.killCount.value += 1;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async _handleGameEnd(context: PeerContext, data: { type: 'game_over' }) {
+    console.log("got game over");
+    this.gameFinished = true;
   }
 
   _updateEntityMap(ents: EntityMap, updated: EntityMap, createMode: boolean = false) {

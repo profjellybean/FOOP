@@ -30,6 +30,10 @@ export const mapComponentFromJson = (json: any): Component => {
       comp = new PositionListComponent(json.id);
       comp.init(json.positions);
       break;
+    case 'hidden':
+      comp = new HiddenComponent();
+      comp.init(json.hidden);
+      break;
     default:
       throw new Error(`Unknown component type ${json.id}`);
   }
