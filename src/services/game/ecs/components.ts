@@ -89,6 +89,17 @@ export class AliveComponent implements Component {
 
 }
 
+export class HiddenComponent implements Component {
+  id: string = "hidden";
+  hidden: boolean = false;
+
+  init(params: any): Component {
+    this.hidden = params ?? false;
+    return this;
+  }
+
+}
+
 type FieldInfo = {
   occupied: Entity | null;
   type: 'surface' | 'underground' | 'entry' | 'meeting';

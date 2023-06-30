@@ -15,7 +15,8 @@ const props = defineProps<{
 
 const position = computed(() => {
   const pos = props.player.getComponent<PositionComponent>('pos')
-  return document.getElementById(pos.y!.toString() + ' ' + pos.x!.toString())?.getBoundingClientRect();
+  // i dont know why this is necessary but it seems that for the player the x and y are swapped
+  return document.getElementById(pos.x!.toString() + ' ' + pos.y!.toString())?.getBoundingClientRect();
 });
 
 // init vue use magic key listeners when controllable is true
@@ -71,7 +72,7 @@ if (props.controllable) {
   <div class="absolute h-6 w-6" :style="{
     top: `${position?.y ?? '0'}px`,
     left: `${position?.x ?? '0'}px`
-  }"><v-icon name="fa-cat" scale="2"></v-icon>
+  }"><v-icon name="fa-cat" scale="1"></v-icon>
 
   </div>
 </template>

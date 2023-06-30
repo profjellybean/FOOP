@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Entity } from '@/services/game/ecs';
-import type { AliveComponent, MapComponent, PositionComponent } from '@/services/game/ecs/components';
+import type { AliveComponent, HiddenComponent, MapComponent, PositionComponent } from '@/services/game/ecs/components';
 import { computed } from 'vue';
 
 const props = defineProps<{
@@ -9,23 +9,17 @@ const props = defineProps<{
 }>();
 
 const pos = computed(() => props.mouse && props.mouse.getComponent<PositionComponent>('pos'));
-const alive = computed(() => props.mouse && props.mouse.getComponent<AliveComponent>('isAlive'));
+const alive = computed(() => props.mouse && props.mouse.getComponent<AliveComponent>('isAlive')?.isAlive);
 
 const position = computed(() => {
-  let rect = document.getElementById(pos.value?.x!.toString() + ' ' + pos.value?.y!.toString())?.getBoundingClientRect();
+  let rect = document.getElementById(pos.value?.y!.toString() + ' ' + pos.value?.x!.toString())?.getBoundingClientRect();
   return rect ?? {
     x: 30,
     y: 30,
   };
 });
 
-const hidden = computed(() => {
-  if (props.mapComp.map![pos.value?.x!][pos.value?.y!].type != 'surface') {
-    return true;
-  } else {
-    return false;
-  }
-});
+const hidden = computed(() => props.mouse && props.mouse.getComponent<HiddenComponent>('hidden')?.hidden);
 
 </script>
 
@@ -33,7 +27,7 @@ const hidden = computed(() => {
   <div class="absolute h-2 w-2" :style="{
     top: `${position?.y}px`,
     left: `${position?.x}px`,
-    display: alive.isAlive && !hidden ? 'block' : 'none'
+    display: alive && !hidden ? 'block' : 'none'
   }">
     <v-icon name="gi-seated-mouse"></v-icon>
   </div>

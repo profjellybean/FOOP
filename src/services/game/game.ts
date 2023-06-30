@@ -8,7 +8,7 @@ import type { PeerService } from '../peer';
 import type { InitialSyncMessage, PeerContext, StartGameMessage } from '../peer/data_handlers/types';
 import { PeerServiceHook } from '../peer/types';
 import { ECS, Entity, type EntityMap } from "./ecs";
-import { AliveComponent, AppearanceComponent, MapComponent, PositionComponent, PositionListComponent } from "./ecs/components";
+import { AliveComponent, AppearanceComponent, HiddenComponent, MapComponent, PositionComponent, PositionListComponent } from "./ecs/components";
 import { MouseHelper, SinglePosition } from "./ecs/pathfinding";
 import { GameStatus, type GameContext, type GameSettings } from './types';
 
@@ -89,7 +89,6 @@ export class GameService {
 
       this.context.gameId = this.peerService!.lobbySettings.lobbyId;
 
-      console.log("pre sync state", this.currentState.value);
       // console.log(settings.lobbyId, this.peerService!.peer.value!.id, this.context.value.gameId === this.peerService!.peer.value!.id)
       if (this.context.gameId === this.peerService!.peer!.id) {
         // user is host
@@ -203,9 +202,7 @@ export class GameService {
       ent.addComponent(new PositionComponent('pos'), { x: this.mouseHelper.getInitialMouseX(), y: this.mouseHelper.getInitialMouseY() });
       ent.addComponent(new PositionListComponent('targetList'), this.generateMouseGoalList()); // getRandomPathStrategy
       ent.addComponent(new AliveComponent(), true);
-      // todo: add a collision component, to know when mice collide with cats
-      // ent.addComponent(new CollisionComponent());
-
+      ent.addComponent(new HiddenComponent());
       entities[ent.id] = ent;
     }
     return entities;
@@ -314,51 +311,73 @@ export class GameService {
 
   }
 
-  checkCollision(x: number, y: number) { //cat too small, only 1x1
-    this.killChecker(x, y);
-    //ugly code but it works:
-    x = x - 1; //check left -1 0
-    this.killChecker(x, y);
-    x = x + 2; //check right 1 0
-    this.killChecker(x, y);
-    x = x - 1; //check down 0 -1
-    y = y - 1;
-    this.killChecker(x, y);
-    y = y + 2; //check up 0 1
-    this.killChecker(x, y);
-    x = x + 1; // check right upper corner 1 1
-    this.killChecker(x, y);
-    y = y - 2; // check right lower corner 1 -1
-    this.killChecker(x, y);
-    x = x - 2; // check left lower corner -1 -1
-    this.killChecker(x, y);
-    y = y + 2; // check left upper corner -1 1
-    this.killChecker(x, y);
-  }
-
-  killChecker(x: number, y: number) {
+  checkCollision(x: number, y: number) {
     if (y >= 0 && y < 100 && x >= 0 && x < 100) {
-      const cell = this.map.map![x][y].occupied;
-      if (this.map.map![x][y].occupied != null && this.map.map![x][y].type != "underground") {
-        console.log("can kill", this.map.map![x][y].occupied)
-        if (this.map.map![x][y].occupied?.getComponent<AppearanceComponent>("ap").shape == "mouse" && this.map.map![x][y].occupied?.getComponent<AliveComponent>("isAlive").isAlive != false) {
-          const i = this.map.map![x][y].occupied?.id; //TODO: check if it is mouse and 
-          const mouse = this.currentState.value.opponents[i!.toString()];
-          this.killCount.value += this.mouseHelper.killMouse(mouse);
+      // i changed the x and y coordinates in the call below to fix the collision detection on the field.
+      const adjecent = this.getAdjacent(this.map.map!, y, x);
+      for (let i = 0; i < adjecent.length; i++) {
+        const cell = adjecent[i];
+        if (cell.occupied !== null && cell.occupied.getComponent<HiddenComponent>("hidden").hidden === false) {
+          if (cell.occupied!.getComponent<AppearanceComponent>("ap").shape === "mouse" && cell.occupied!.getComponent<AliveComponent>("isAlive").isAlive === true) {
+            const i = cell.occupied!.id;
+            const mouse = this.currentState.value.opponents[i!.toString()];
+            this.killCount.value += this.mouseHelper.killMouse(mouse);
+            if (this._settings.multiplayer && this._settings.networked) {
+              this.peerService!.send({
+                type: "kill",
+                value: i
+              });
+            }
+          }
         }
       }
     }
+  }
+
+  isValidPos(i: number, j: number, n: number, m: number) {
+    if (i < 0 || j < 0 || i > n - 1 || j > m - 1)
+      return 0;
+    return 1;
+  }
+
+
+  getAdjacent<T>(arr: T[][], i: number, j: number): T[] {
+    const n = arr.length;
+    const m = arr[0].length;
+    const v = [];
+
+    // blatently add the own position as well without checking
+    v.push(arr[i][j]);
+
+    if (this.isValidPos(i - 1, j - 1, n, m))
+      v.push(arr[i - 1][j - 1]);
+    if (this.isValidPos(i - 1, j, n, m))
+      v.push(arr[i - 1][j]);
+    if (this.isValidPos(i - 1, j + 1, n, m))
+      v.push(arr[i - 1][j + 1]);
+    if (this.isValidPos(i, j - 1, n, m))
+      v.push(arr[i][j - 1]);
+    if (this.isValidPos(i, j + 1, n, m))
+      v.push(arr[i][j + 1]);
+    if (this.isValidPos(i + 1, j - 1, n, m))
+      v.push(arr[i + 1][j - 1]);
+    if (this.isValidPos(i + 1, j, n, m))
+      v.push(arr[i + 1][j]);
+    if (this.isValidPos(i + 1, j + 1, n, m))
+      v.push(arr[i + 1][j + 1]);
+
+    return v;
   }
 
   async _gameLoop() {
     this.counter++;
     if (this.counter % 7 === 0) {
       this.counter = 0;
-      await this.updateOpponentPosition();
-      this.winCount.value = this.mouseHelper.getMouseWinCounter();
-
       const playerPos = this.currentState.value.players["singleplayer"].getComponent<PositionComponent>("pos");
       this.checkCollision(playerPos.x!, playerPos.y!);
+
+      await this.updateOpponentPosition();
+      this.winCount.value = this.mouseHelper.getMouseWinCounter();
     }
 
     if ((this.stateBuffer.players !== undefined && Object.keys(this.stateBuffer.players).length > 0)) {
@@ -464,6 +483,7 @@ export class GameService {
     this.peerService!.dataHandler!.registerHandler("pause_game", this._handlePauseGame.bind(this));
     this.peerService!.dataHandler!.registerHandler("resume_game", this._handleResumeGame.bind(this));
     this.peerService!.dataHandler!.registerHandler("update", this._handleUpdate.bind(this));
+    this.peerService!.dataHandler!.registerHandler("kill", this._handleKillMouse.bind(this));
   }
 
   /**
@@ -503,6 +523,11 @@ export class GameService {
     console.log(updatePlayers);
 
     this._updateEntityMap(this.stateBuffer.players, updatePlayers, true);
+  }
+
+  async _handleKillMouse(context: PeerContext, data: { type: 'kill', value: number | string }) {
+    console.log("killing mouse", data.value)
+    this.currentState.value.opponents[data.value.toString()].getComponent<AliveComponent>("isAlive").isAlive = false;
   }
 
   _updateEntityMap(ents: EntityMap, updated: EntityMap, createMode: boolean = false) {

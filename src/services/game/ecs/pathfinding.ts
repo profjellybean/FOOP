@@ -1,5 +1,5 @@
 import type { Entity } from ".";
-import type { AliveComponent, MapComponent, PositionComponent, PositionListComponent } from "./components";
+import type { AliveComponent, HiddenComponent, MapComponent, PositionComponent, PositionListComponent } from "./components";
 
 export class MouseHelper {
     private numberOfMice: number = 25;
@@ -7,8 +7,8 @@ export class MouseHelper {
 
     async updateMousePosition(mouse: Entity, map: MapComponent): Promise<void> {
         return new Promise((resolve, reject) => {
-
-            if (mouse.getComponent<AliveComponent>("isAlive").isAlive === false) {
+            const alive = mouse.getComponent<AliveComponent>("isAlive");
+            if (alive.isAlive === false) {
                 resolve();
                 return;
             }
@@ -22,7 +22,7 @@ export class MouseHelper {
 
             if (newPos?.x === goalPos?.x && newPos?.y === goalPos?.y || mousePos?.x === goalPos?.x && mousePos?.y === goalPos?.y) {
                 if (mouseTargetList.length === 0) {
-                    mouse.getComponent<AliveComponent>("isAlive").isAlive = false;
+                    alive.isAlive = false;
                     this.mouseWinCounter++;
                     resolve();
                     return;
@@ -40,6 +40,14 @@ export class MouseHelper {
 
             mouse.getComponent<PositionComponent>("pos").x = newPos!.x;
             mouse.getComponent<PositionComponent>("pos").y = newPos!.y;
+
+            if (map.map![newPos!.x!][newPos!.y!].type === 'entry') {
+                if (mouse.getComponent<HiddenComponent>("hidden").hidden) {
+                    mouse.getComponent<HiddenComponent>("hidden").hidden = false;
+                } else {
+                    mouse.getComponent<HiddenComponent>("hidden").hidden = true;
+                }
+            }
 
             resolve();
         });
@@ -101,15 +109,11 @@ export class MouseHelper {
     }
 
     killMouse(mouse: Entity): number {
-        console.log("killing mouse");
         if (this.numberOfMice > 0) {
             const alive = mouse.getComponent<AliveComponent>("isAlive");
             if (alive.isAlive !== false) {
-                console.log("NOW ACTUALLY killing mouse");
                 this.numberOfMice--;
                 alive.isAlive = false;
-                console.log(mouse)
-                console.log(this.numberOfMice)
                 return 1;
             }
         }

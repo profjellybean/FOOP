@@ -7,10 +7,10 @@ const props = defineProps<{
 
 </script>
 <template>
-    <div class="h-full w-full grid-flow-row auto-cols-fr">
+    <div class="h-full w-full grid-flow-col auto-cols-fr">
         <div v-for="(row, index) in  props.mapComp.map" :key="index"
             class="w-full flex justify-center items-stretch bg-white">
-            <div class="grid-item p-0" v-for="(cell, index1) in  row " :key="index1" :id="index + ' ' + index1" :class="{
+            <div class="grid-item p-0" v-for="(cell, index1) in  row " :key="index1" :id="index1 + ' ' + index" :class="{
                 'bg-gray-400 rounded-full': cell.type === 'entry',
                 'bg-yellow-400 shadow-md shadow-yellow-700': cell.type === 'meeting',
             }">
