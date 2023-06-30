@@ -27,8 +27,12 @@ const toggleGame = () => {
         <div class="text-gray-700 font-bold text-sm">Kills: {{ props.service.killCount }}</div>
         <div class="text-gray-700 font-bold text-sm">Wins: {{ props.service.winCount }}</div>
       </div>
-      <div class="flex justify-between text-sm">
+      <div class="flex justify-between text-sm" v-if="props.service.gameFinished.value === false">
         <button @click="toggleGame" class="my-1 py-1 px-2 bg-slate-400 text-slate-800 rounded-md">Toggle Game</button>
+      </div>
+      <div v-else class="text-green-500">
+        <button @click="$emit('restart')" class="my-1 py-1 px-2 bg-slate-400 text-slate-800 rounded-md">Restart
+          Game</button>
       </div>
     </div>
   </div>

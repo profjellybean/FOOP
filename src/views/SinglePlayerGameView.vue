@@ -12,11 +12,15 @@ setTimeout(() => {
 const player = computed(() => gameService.currentState.value.players && gameService.currentState.value.players[playerId]);
 const mice = computed(() => gameService.currentState.value.opponents);
 
+const restartGame = () => {
+  gameService.restartGame([playerId]);
+};
+
 </script>
 
 <template>
   <div class="h-full w-full bg-sky-700 flex justify-center items-center">
-    <GameMenu :service="gameService"></GameMenu>
+    <GameMenu :service="gameService" @restart="restartGame"></GameMenu>
     <GameMap :map-comp="gameService.map"></GameMap>
     <GamePlayer v-if="player !== undefined" :player="player" :game-service="gameService" controllable></GamePlayer>
     <ul>
