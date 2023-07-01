@@ -1,6 +1,6 @@
-# exercise1
+# catmousegame
 
-This template should help get you started developing with Vue 3 in Vite.
+This game is hosted on https://profjellybean.github.io/FOOP/.
 
 ## Recommended IDE Setup
 
